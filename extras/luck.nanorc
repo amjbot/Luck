@@ -1,0 +1,9 @@
+syntax "luck" "\.lux?$"
+header "^#!.*/python[-0-9._]*"
+icolor brightblue "def [0-9A-Z_]+"
+color brightcyan "\<(and|as|assert|break|class|continue|def|del|elif|else|except|exec|finally|fn|for|from|function|if|import|in|is|let|match|not|or|pass|property|raise|return|then|try|type|while|with|yield)\>"
+#color brightgreen "\{" "\}" "\(" "\)"
+color brightgreen "["][^"]*[^\\]["]" "["]{3}.*[^\\]["]{3}"
+color brightred "#.*$"
+color brightred start="\(\*" end="\*\)"
+

@@ -1,0 +1,40 @@
+
+function exit(code:int): 'a = @ "(Unix.exit (Word8.fromInt " code "))"
+
+(*
+type PatternNotMatched
+(* values *)
+let $"()":() = (@ "()")
+
+function $"#pattern-or" (l: 'a -> 'b) (r: 'c -> 'd) (t: 'a|'c): ('b|'d) = 
+  try l(t) catch PatternNotMatched then r(t)
+function $"throw" (x: 'a): 'b = (@ "(raise " x ")" )
+
+(* language primitives *)
+function $";"(l: 'a)(r: 'b): 'b = (@ "(" l " " r ")")
+function $"|"(x: 'a)(f: 'a -> 'b): 'b = (@ "(" f " " x ")")
+function $","(): () = (@ "()")
+function $","(a: 'a)(): 'a = (@ "(" a ")")
+function $","(a: 'a)(b: 'b)(): ('a,'b) = (@ "(" a "," b ")")
+function $","(a: 'a)(b: 'b)(c: 'c)(): ('a,'b,'c) = (@ "(" a "," b "," c ")")
+function $","(a: 'a)(b: 'b)(c: 'c)(d: 'd)(): ('a,'b,'c,'d) = (@ "(" a "," b "," c "," d ")")
+function $","(a: 'a)(b: 'b)(c: 'c)(d: 'd)(e: 'e)(): ('a,'b,'c,'d,'e) = (@ "(" a "," b "," c "," d "," e ")")
+function $","(a: 'a)(b: 'b)(c: 'c)(d: 'd)(e: 'e)(f: 'f)(): ('a,'b,'c,'d,'e,'f) = (@ "(" a "," b "," c "," d "," e "," f ")")
+function $","(a: 'a)(b: 'b)(c: 'c)(d: 'd)(e: 'e)(f: 'f)(g: 'g)(): ('a,'b,'c,'d,'e,'f,'g) = (@ "(" a "," b "," c "," d "," e "," f "," g ")")
+
+(* control flow *)
+function $"if"(c: bool)(t: 'a)(f: 'b): 'a|'b = (@ "(if " c " then " t " else " f ")")
+function $"throw"(x: 'a): 'b = (@ "raise " x)
+
+(* operations on values *)
+function $"+"(x: int)(y: int): int = @ "(" x " + " y ")"
+
+
+
+(* utility function *)
+function map(f: 'a -> 'b)(l: list['a]): list['b] = @ "(List.map" f " " l ")"
+
+function print(s: string): () = @ "(print " s ")"
+
+(* system calls *)
+*)
