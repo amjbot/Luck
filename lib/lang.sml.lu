@@ -1,5 +1,6 @@
 
 function exit(code:int): 'a = @ "(Unix.exit (Word8.fromInt " code "))"
+function exit(_:unit): 'a = @ "(Unix.exit (Word8.fromInt 0))"
 
 (*
 type PatternNotMatched

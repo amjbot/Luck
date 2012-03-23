@@ -7,7 +7,8 @@ struct
   let commentEnd = "*)"
   let commentLine = "#"
   let nestedComments = true
-  let identStart = letter (* of course, a leading prime is used in the
+  let identStart st = (letter <|> (char '_')) st
+                             (* of course, a leading prime is used in the
                              case of tyvars, but it's easiest to handle
                              these seperately *)
   let identLetter st = (alphaNum <|> (char '_')) st
@@ -56,12 +57,12 @@ let identifier st = (identifier <|> (reservedOp "$" >> stringLiteral)) st
 let pTYPE st = (get_option (!Ast.option_typesystem))#parse st
 
 let rec pCONST st = (
-   (reserved "true" >> return (con "true" "bool") ) <|>
-   (reserved "false" >> return (con "false" "bool") ) <|>
-   (pINT >>= fun c -> return (con c "int") ) <|>
-   (pFLOAT >>= fun c -> return (con c "float") ) <|>
-   (pCHAR >>= fun c -> return (con c "char") ) <|>
-   (pSTRING >>= fun c -> return (con c "string") )
+   (reserved "true" >> return (con "true" "bool")) <|>
+   (reserved "false" >> return (con "false" "bool")) <|>
+   (pINT >>= fun c -> return (con c "int")) <|>
+   (pFLOAT >>= fun c -> return (con c "float")) <|>
+   (pCHAR >>= fun c -> return (con c "char")) <|>
+   (pSTRING >>= fun c -> return (con c "string"))
 ) st
 and pATOM st = (
    pCONST <|>
@@ -221,12 +222,16 @@ let pFUNCTIONIDENT st = (
    (identifier >>= fun i -> return i) <|>
    (reservedOp "." >> identifier >>= fun i -> return ("."^i))
 ) st;;
+let pFUNCTIONPARAMIDENT st = (
+   identifier <|>
+   ((reserved "_") >> (return "_"))
+) st;;
 let pOPTIONALTYPE st = (
    (reservedOp ":" >> ((pTYPE >>= fun t -> return (Some t)) <?> "ascribed type")) <|>
    (return None)
 ) st;;
 let pFUNCTIONPARAM st = (
-   parens (identifier >>= fun p -> pOPTIONALTYPE >>= fun tt -> return ((fun b -> abs p b), tt))
+   parens (pFUNCTIONPARAMIDENT >>= fun p -> pOPTIONALTYPE >>= fun tt -> return ((fun b -> abs p b), tt))
 ) st;;
 let pFUNCTION st = (
    pFUNCTIONIDENT >>= fun fn -> (many1 pFUNCTIONPARAM) >>= fun ps -> 
