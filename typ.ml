@@ -2,10 +2,10 @@ open Misc
 open Ast
 open Log
 
-(* TODO: 
+(* TODO:
 
    1. create test case for simply typed lambda calculus [x]
-   2. solve test case for simly typed lambda calculus [x]
+   2. solve test case for simply typed lambda calculus [x]
    3. connect simply typed lambda calculus with ast/prs frontend [3/19/2012?]
    4. connect simply typed lambda calculus with gen backend [3/19/2012?]
 
@@ -60,7 +60,7 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
    ns
 )
 let extract_global_types (ns: namespace): (string,(typ list)) hash_table = (
-   let globals : (string,(typ list)) hash_table = new hashtable in 
+   let globals : (string,(typ list)) hash_table = new hashtable in
    let put_type (name: string) (tt: typ): unit =
       globals#set name (if not (globals#has name) then [tt] else (tt :: (globals#get name)))
    in
@@ -85,7 +85,8 @@ let annotate (rb: resource_bundle): annotated_namespace = (
 
 let test_cases : (type_system * ((int*(typ list)) list) * ((int*int*int) list)) list = [
    (new Ts_simple.checker, [(1,["'a -> 'a"]);(2,["int"])], [(1,2,3)]);
-   (new Ts_simple.checker, [(1,["'a -> 'a -> 'a"]);(2,["int"]);(3,["int"])], [(1,2,4);(4,3,5)])
+   (new Ts_simple.checker, [(1,["'a -> 'a -> 'a"]);(2,["int"]);(3,["int"])], [(1,2,4);(4,3,5)]);
+   (new Ts_poly.checker, [(1,["int -> unit"; "unit -> unit"]);(2,["int"])], [(1,2,3)])
 ]
 
 let test () = (

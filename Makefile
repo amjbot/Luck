@@ -16,6 +16,9 @@ clean:
 luck: clean all
 	cd luck_1.0; ../luck charm
 
+test: again
+	./luck -test
+
 tdd: again
 	./luck testsuite/examples/fibonacci.lu
 

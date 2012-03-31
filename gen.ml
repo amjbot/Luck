@@ -66,6 +66,10 @@ class sml_language : target_language = object (this)
         "("^(this#translate_term f)^" "^(this#translate_term x)^")"
    )
    method translate (ns,a) = (
+      print_endline ("|annotations| = "^(string_of_int (List.length a)));
+      List.iter (
+         fun (n,t) -> print_endline ((string_of_int n)^" : "^t)
+      ) a;
       let type_binds = List.flatten (List.map (function
          (* how should this work? *)
          | _ -> []

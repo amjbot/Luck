@@ -116,10 +116,12 @@ class checker: type_system = object (this)
           let rt = type_lookup r in
           let tt = type_lookup t in
           (match (lt,rt) with
-          | (ST_Arrow (pt,_)), _ -> if pt!=rt then (break_constraint ("Invalid argument to function: "^(ppt pt)^" "^(ppt rt)))
+          | (ST_Arrow (pt,_)), _ -> if (ppt pt)<>(ppt rt)
+          then (break_constraint ("Invalid argument to function: "^(ppt pt)^" "^(ppt rt)))
           | _ -> break_constraint ("Must be function to apply: "^(ppt lt)) );
           (match (lt,tt) with
-          | (ST_Arrow (_,bt)), _ -> if bt!=tt then (break_constraint ("Function signature disagrees with returned value: "^(ppt bt)^" "^(ppt tt)))
+          | (ST_Arrow (_,bt)), _ -> if (ppt bt)<>(ppt tt)
+          then (break_constraint ("Function signature disagrees with returned value: function "^(ppt lt)^" returned "^(ppt tt)))
           | _ -> ())(* already caught by previous match pattern *)
       ) arrows;
       if not (!constraints_satisified) then exit 1;
