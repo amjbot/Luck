@@ -108,10 +108,12 @@ class checker: type_system = object (this)
           (match (lt,rt) with
           | (PT_Arrow ((PT_Var ti),_)), _ -> fresh := true; type_context#set l (sub_tvar ti rt lt)
           | (PT_Arrow (pt,_)), _ -> ()
+          | (PT_Poly plt),_ -> let flt = List.filter (function PT_Arrow (pt,bt) -> pt=rt | _ -> false) plt in
+            if (List.length flt) = 1 then (fresh := true; type_context#set l (List.nth flt 0))
           | _ -> ());
           (match (lt,tt) with
-          | (PT_Arrow (_,bt)), (PT_Var ti) -> fresh := true; type_context#set t bt
-          | (PT_Arrow(_,bt)), _ -> ()
+          | (PT_Arrow (_,bt)),(PT_Var ti) -> fresh := true; type_context#set t bt
+          | (PT_Arrow(_,bt)),_ -> ()
           | _ -> ())
       ) arrows done;
       let constraints_satisified = ref true in
