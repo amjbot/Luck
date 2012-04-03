@@ -70,14 +70,38 @@ let extract_global_types (ns: namespace): (string,(typ list)) hash_table = (
       | _ -> ()
    ) ns; globals
 )
+let extract_system (globals: (string,(typ list)) hash_table) (ns: namespace): (((int*(typ list)) list) * ((int*int*int) list)) = (
+  let a = ref [] in
+  let c = ref [] in
+  let rec extract_term_system (ns: (string,(typ list)) hash_table) (t: term): unit = (
+    match t with
+    | Con(n,s,tt) -> a := (n,[tt]) :: !a
+    | Var(n,s) -> if ns#has s then (a := (n,(ns#get s)) :: !a) else ()
+    | App(n,l,r) -> c := ((term_n l),(term_n r),n) :: !c
+    | Abs(n,p,b) -> let ns = ns#shadow() in ns#del p; (
+      (* let pt = List.assoc (term_n p) !a in
+      let bt = List.assoc (term_n b) !a in *)
+      extract_term_system ns b;
+      let pt,bt,tt = (get_option !option_typesystem)#new_tarr(None,None,None) in
+      a := (n,[tt]) :: !a
+    )
+  ) in 
+  List.iter (function
+   | NS_bind(s,t) -> extract_term_system globals t
+   | NS_expr t -> extract_term_system globals t
+   | _ -> ()
+  ) ns; (!a,!c)
+)
+let extract_constraints (ns: namespace) = (
+  []
+)
 let annotate (rb: resource_bundle): annotated_namespace = (
    (* 1, extract types of global namespace *)
    let ns = flatten_namespace rb in
    let globals = extract_global_types ns in
       (* 2, extract types of all terms -- ambiguous terms just have more than one type *)
       (* 3, extract constraints on all terms *)
-   let annotations = [] in
-   let constraints = [] in
+   let (annotations,constraints) = extract_system globals ns in
    let annotations = (get_option !Ast.option_typesystem)#check annotations constraints in
    let ns = fix_namespace (ns, annotations) in
    (ns,annotations)
