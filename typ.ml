@@ -67,32 +67,31 @@ let flatten_namespace (nss: resource_bundle): namespace = (
 
 
 (* STEP 2. extract_global_types : namespace -> globals *)
-let extract_global_types (ns: namespace): (string,(typ list)) hash_table = (
-   let globals : (string,(typ list)) hash_table = new hashtable in
-   let put_type (name: string) (tt: typ): unit =
-      globals#set name (if not (globals#has name) then [tt] else (tt :: (globals#get name)))
-   in
+let extract_global_types (ns: namespace): (string,typ) hash_table = (
+   let globals : (string,typ) hash_table = new hashtable in
    List.iter (function
       | NS_type tt -> assert false (* how to handle type definitions? just add another rule and syntax form? *)
-      | NS_bind (k,t) -> put_type k (descript t)
+      | NS_bind (k,t) -> 
+        assert(not(globals#has k));
+        globals#set k (descript t)
       | _ -> ()
    ) ns; globals
 )
 
 
 (* STEP 3. extract_system : globals -> namespace -> (annotations,constraints) *)
-let extract_system (globals: (string,(typ list)) hash_table) (ns: namespace): (((int*(typ list)) list) * ((int*int*int) list)) = (
+let extract_system (globals: (string,typ) hash_table) (ns: namespace): (((int*(typ list)) list) * ((int*int*int) list)) = (
   let a : (int*(typ list)) list ref = ref [] in
   let c : (int*int*int) list ref= ref [] in
-  let rec extract_term_system (ns: (string,(typ list)) hash_table) (t: term): unit = (
+  let rec extract_term_system (ns: (string,typ) hash_table) (t: term): unit = (
     print_endline("Extract system from term: "^(pp_term t));
     match t with
     | Con(n,s,tt) -> a := (n,[tt]) :: !a
-    | Var(n,s) -> let ts = List.flatten (List.map (fun s ->
-           (print_endline ("break up identifier: "^s));
-           if ns#has s then ns#get s else
-           (print_endline ("Could not find symbol "^s^" in namespace."); exit 1)
-    ) (string_split "[\n]" s))
+    | Var(n,s) -> let ts = List.map (fun s ->
+       (print_endline ("break up identifier: "^s));
+       if ns#has s then ns#get s else
+       (print_endline ("Could not find symbol "^s^" in namespace."); exit 1)
+    ) (string_split "[\n]" s)
     in (a := ((n,ts) :: !a))
     | App(n,l,r) -> c := ((term_n l),(term_n r),n) :: !c
     | Abs(n,p,b) -> let ns = ns#shadow() in ns#del p; (
@@ -137,7 +136,7 @@ let annotate (rb: resource_bundle): annotated_namespace = (
       (* 2, extract types of all terms -- ambiguous terms just have more than one type *)
       (* 3, extract constraints on all terms *)
    print_endline "Print global namespace:";
-   List.iter (fun (k,vs) -> print_endline(k^" : "^(string_join " | " vs))) (globals#items());
+   List.iter (fun (k,v) -> print_endline(k^" : "^v)) (globals#items());
    let (annotations,constraints) = extract_system globals ns in
    print_endline "Print annotations:";
    List.iter (fun (n,ts) -> print_endline ("#"^(string_of_int n)^" : "^(string_join " | " ts))) annotations;
