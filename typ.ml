@@ -20,6 +20,9 @@ open Log
    v1.0                         (DUE: 2012/12)
 *)
 
+
+(* STEP 1. flatten_namespace : resource_bundle -> namespace *)
+(* hide extract_globals, it is a helper method and damn ugly at that *)
 let extract_globals : hard_link list -> (string,string) hash_table = fun nss -> (
    let globals = new hashtable in
    globals#set "@" "@";
@@ -32,7 +35,6 @@ let extract_globals : hard_link list -> (string,string) hash_table = fun nss -> 
       | _ -> ()
    ) ns) nss; globals
 )
-
 let flatten_namespace (nss: resource_bundle): namespace = (
    let rec normalize_term_names : string -> (string,string) hash_table -> term -> term = fun uri ns t -> (
       match t with
@@ -55,10 +57,9 @@ let flatten_namespace (nss: resource_bundle): namespace = (
       ) ns @ !flat_ns;
    ) nss; !flat_ns
 )
-let fix_namespace ((ns,a): annotated_namespace): namespace = (
-   (* TODO: remove ambiguities in referencing polymorphic global functions *)
-   ns
-)
+
+
+(* STEP 2. extract_global_types : namespace -> globals *)
 let extract_global_types (ns: namespace): (string,(typ list)) hash_table = (
    let globals : (string,(typ list)) hash_table = new hashtable in
    let put_type (name: string) (tt: typ): unit =
@@ -70,6 +71,9 @@ let extract_global_types (ns: namespace): (string,(typ list)) hash_table = (
       | _ -> ()
    ) ns; globals
 )
+
+
+(* STEP 3. extract_system : globals -> namespace -> (annotations,constraints) *)
 let extract_system (globals: (string,(typ list)) hash_table) (ns: namespace): (((int*(typ list)) list) * ((int*int*int) list)) = (
   let a : (int*(typ list)) list ref = ref [] in
   let c : (int*int*int) list ref= ref [] in
@@ -98,9 +102,19 @@ let extract_system (globals: (string,(typ list)) hash_table) (ns: namespace): ((
    | _ -> ()
   ) ns; (!a,!c)
 )
-let extract_constraints (ns: namespace) = (
-  []
+
+
+(* STEP 4. typesystem#check : (annotations,constraints) -> annotations *)
+(* external *)
+
+
+(* STEP 5. fix_namespace : annotated_namespace -> namespace *)
+let fix_namespace ((ns,a): annotated_namespace): namespace = (
+   (* TODO: remove ambiguities in referencing polymorphic global functions *)
+   ns
 )
+
+
 (* 
   annotate = flatten_namespace -> extract_global_types -> extract_system -> typesystem#check -> fix_namespace
   flatten_namespace : resource_bundle -> namespace
