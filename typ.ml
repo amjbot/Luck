@@ -125,10 +125,6 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
        with Not_found -> (print_endline ("Could not find annotation for global term: "^k); exit 1)
      )| _ -> ()
    ) ns;
-   print_endline("|globals| in fix_namespace = "^(string_of_int (List.length (globals#items())) ));
-   List.iter (fun (k,v) ->
-      print_endline ("NS_bind "^k^" : "^v)
-   ) (globals#items());
    (* TODO: remove ambiguities in referencing polymorphic global functions *)
    let rec fix_term : term -> term = function
    | Var(n,s) -> 
