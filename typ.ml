@@ -144,9 +144,7 @@ let annotate (rb: resource_bundle): annotated_namespace = (
    List.iter (fun (n,ts) -> print_endline ("#"^(string_of_int n)^" : "^(string_join " | " ts))) annotations;
    print_endline "Print constraints:";
    List.iter (fun (p,b,t) -> print_endline ("'"^(string_of_int p)^" '"^(string_of_int b)^" => '"^(string_of_int t))) constraints;
-   print_endline "Start type checking";
    let annotations = (get_option !Ast.option_typesystem)#check annotations constraints in
-   print_endline "Finish type checking";
    let ns = fix_namespace (ns, annotations) in
    (ns,annotations)
 )

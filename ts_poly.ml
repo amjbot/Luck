@@ -100,19 +100,20 @@ class checker: type_system = object (this)
       | PT_Arrow (pt,bt) -> PT_Arrow (sub_tvar i rt pt, sub_tvar i rt bt)
       | PT_Var v -> if v=i then rt else PT_Var v
       | tt -> tt in
-      let fresh = ref true in
-      while !fresh do fresh := false; List.iter( fun (l,r,t) ->
+      let previous_state = ref [] in 
+      while !previous_state <> (type_context#items())
+      do previous_state := (type_context#items()); List.iter( fun (l,r,t) ->
           let lt = type_lookup l in
           let rt = type_lookup r in
           let tt = type_lookup t in
           (match (lt,rt) with
-          | (PT_Arrow ((PT_Var ti),_)), _ -> fresh := true; type_context#set l (sub_tvar ti rt lt)
+          | (PT_Arrow ((PT_Var ti),_)), _ -> type_context#set l (sub_tvar ti rt lt)
           | (PT_Arrow (pt,_)), _ -> ()
           | (PT_Poly plt),_ -> let flt = List.filter (function PT_Arrow (pt,bt) -> pt=rt | _ -> false) plt in
-            if (List.length flt) = 1 then (fresh := true; type_context#set l (List.nth flt 0))
+            if (List.length flt) = 1 then type_context#set l (List.nth flt 0)
           | _ -> ());
           (match (lt,tt) with
-          | (PT_Arrow (_,bt)),(PT_Var ti) -> fresh := true; type_context#set t bt
+          | (PT_Arrow (_,bt)),(PT_Var ti) -> type_context#set t bt
           | (PT_Arrow(_,bt)),_ -> ()
           | _ -> ())
       ) arrows done;
