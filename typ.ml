@@ -30,23 +30,17 @@ let flatten_namespace (nss: resource_bundle): namespace = (
       let table = new hashtable in
       table#set "@" "@";
       List.iter (fun (uri,ns,prefix,symbols) -> List.iter (function
-         | NS_bind (k,t) -> 
+         | NS_bind (k,t) ->
          let relative_name = if prefix="" then k else (prefix^"."^k) in
          let absolute_name = to_absolute uri k (term_n t) in
          table#set relative_name (if table#has relative_name then (table#get relative_name)^"\n"^absolute_name else absolute_name)
          | _ -> ()
       ) ns) nss; table
    ) in
-   (* flatten namespace 
-      replace references to global terms with unique names prepended with file location
-      for each resource in bundle
-        1. extract global namespace for resource
-        2. replace global variables with new format
-   *)
    let rec normalize_term_names : string -> (string,string) hash_table -> term -> term = fun uri ns t -> (
       match t with
       | Con(_,_,_) -> t
-      | Var(n,s) -> if ns#has s then Var(n,ns#get s) else assert false
+      | Var(n,s) -> if ns#has s then Var(n,ns#get s) else (print_endline ("Undefined variable name: "^s); assert false)
       | Abs(n,p,b) ->
         let pn = to_absolute uri p n and ns = ns#shadow() in ns#set p pn;
         Abs(n,pn,normalize_term_names uri ns b)
@@ -83,22 +77,30 @@ let extract_global_types (ns: namespace): (string,typ) hash_table = (
 let extract_system (globals: (string,typ) hash_table) (ns: namespace): (((int*(typ list)) list) * ((int*int*int) list)) = (
   let a : (int*(typ list)) list ref = ref [] in
   let c : (int*int*int) list ref= ref [] in
-  let rec extract_term_system (ns: (string,typ) hash_table) (t: term): unit = (
-    print_endline("Extract system from term: "^(pp_term t));
+  let rec extract_term_macro (ns: (string,typ) hash_table) (t: term): unit = (
+     match t with
+     | App(n,l,(Con(_,_,_))) -> extract_term_macro ns l
+     | App(n,l,r) -> extract_term_macro ns l; extract_term_system ns r
+     | Abs(_,_,_) as v -> extract_term_system ns v
+     | _ -> ()
+  ) 
+  and extract_term_system (ns: (string,typ) hash_table) (t: term): unit = (
+    (* todo, extract constraints from everything except macros *)
     match t with
     | Con(n,s,tt) -> a := (n,[tt]) :: !a
-    | Var(n,s) -> let ts = List.map (fun s ->
-       (print_endline ("break up identifier: "^s));
-       if ns#has s then ns#get s else
-       (print_endline ("Could not find symbol "^s^" in namespace."); exit 1)
-    ) (string_split "[\n]" s)
-    in (a := ((n,ts) :: !a))
-    | App(n,l,r) -> c := ((term_n l),(term_n r),n) :: !c
-    | Abs(n,p,b) -> let ns = ns#shadow() in ns#del p; (
-      (* let pt = List.assoc (term_n p) !a in
-      let bt = List.assoc (term_n b) !a in *)
-      extract_term_system ns b;
+    | Var(n,s) -> let ts = List.map 
+       (fun s -> if ns#has s then ns#get s else (print_endline ("Undefined variable: "^s); assert false)) 
+       (string_split "[\n]" s) in (a := ((n,ts) :: !a))
+    | App(n,l,r) -> (
+      match l with
+      | Var(_,"@") -> extract_term_macro ns r
+      | _ -> (c := ((term_n l),(term_n r),n) :: !c; extract_term_system ns l; extract_term_system ns r)
+    )
+    | Abs(n,p,b) -> (
+      let ns = ns#shadow() in
       let pt,bt,tt = (get_option !option_typesystem)#new_tarr(None,None,None) in
+      ns#set p pt;
+      extract_term_system ns b;
       a := (n,[tt]) :: !a
     )
   ) in 
