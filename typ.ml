@@ -13,7 +13,7 @@ open Log
    ditto 1-4, s/simply typed lambda/hard luck/g
    ditto 1-4, s/simply typed lambda/soft luck/g
 
-   Simply Typed Lambda Calculus (DUE: 2012/03)
+   Simply Typed Lambda Calculus (DUE: 2012/03) [x]
    F<:                          (DUE: 2012/04)
    L<: and/or L<:?              (DUE: 2012/05)
    ...
@@ -101,6 +101,14 @@ let extract_system (globals: (string,(typ list)) hash_table) (ns: namespace): ((
 let extract_constraints (ns: namespace) = (
   []
 )
+(* 
+  annotate = flatten_namespace -> extract_global_types -> extract_system -> typesystem#check -> fix_namespace
+  flatten_namespace : resource_bundle -> namespace
+  extract_global_types : namespace -> globals
+  extract_system : globals -> namespace -> (annotations,constraints)
+  typesystem#check : (annotations,constraints) -> annotations
+  fix_namespace : annotated_namespace -> namespace
+*)
 let annotate (rb: resource_bundle): annotated_namespace = (
    (* 1, extract types of global namespace *)
    let ns = flatten_namespace rb in
@@ -118,6 +126,7 @@ let annotate (rb: resource_bundle): annotated_namespace = (
    let ns = fix_namespace (ns, annotations) in
    (ns,annotations)
 )
+
 
 let test_cases : (type_system * ((int*(typ list)) list) * ((int*int*int) list)) list = [
    (new Ts_simple.checker, [(1,["'a -> 'a"]);(2,["int"])], [(1,2,3)]);
