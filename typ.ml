@@ -23,36 +23,43 @@ open Log
 
 (* STEP 1. flatten_namespace : resource_bundle -> namespace *)
 (* hide extract_globals, it is a helper method and damn ugly at that *)
-let extract_globals : hard_link list -> (string,string) hash_table = fun nss -> (
-   let globals = new hashtable in
-   globals#set "@" "@";
-   List.iter (fun (uri,ns,prefix,symbols) -> List.iter (function
-      | NS_bind (k,t) -> 
-        let local_name = if prefix="" then k else (prefix^k) in
-        let global_name = uri^"$"^k in
-        (* ambiguous strings stay ambigous here *)
-        globals#set local_name (if globals#has local_name then (globals#get local_name)^" "^global_name else global_name)
-      | _ -> ()
-   ) ns) nss; globals
-)
 let flatten_namespace (nss: resource_bundle): namespace = (
+   (* extract mapping from relatively global variable names to absolute global variable names *)
+   let to_absolute (uri: string) (var: string) (n: int) = uri^"$"^var^"#"^(string_of_int n) in
+   let map_relative_to_absolute_names : hard_link list -> (string,string) hash_table = fun nss -> (
+      let table = new hashtable in
+      table#set "@" "@";
+      List.iter (fun (uri,ns,prefix,symbols) -> List.iter (function
+         | NS_bind (k,t) -> 
+         let relative_name = if prefix="" then k else (prefix^"."^k) in
+         let absolute_name = to_absolute uri k (term_n t) in
+         table#set relative_name (if table#has relative_name then (table#get relative_name)^"\n"^absolute_name else absolute_name)
+         | _ -> ()
+      ) ns) nss; table
+   ) in
+   (* flatten namespace 
+      replace references to global terms with unique names prepended with file location
+      for each resource in bundle
+        1. extract global namespace for resource
+        2. replace global variables with new format
+   *)
    let rec normalize_term_names : string -> (string,string) hash_table -> term -> term = fun uri ns t -> (
       match t with
       | Con(_,_,_) -> t
-      | Var(n,s) -> if ns#has s then Var(n,ns#get s) else Var(n,(uri^"$"^s))
-      | Abs(n,p,b) -> 
-        let pn = uri^"$"^p and ns = ns#shadow() in ns#set p pn;
+      | Var(n,s) -> if ns#has s then Var(n,ns#get s) else assert false
+      | Abs(n,p,b) ->
+        let pn = to_absolute uri p n and ns = ns#shadow() in ns#set p pn;
         Abs(n,pn,normalize_term_names uri ns b)
       | App(n,f,x) -> App(n,normalize_term_names uri ns f,normalize_term_names uri ns x)
    ) in
    let flat_ns : namespace ref = ref [] in
    List.iter (fun (uri,ns,deps) ->
-      let globals = extract_globals ((uri,ns,"",["*"]) :: deps) in
+      let diff = map_relative_to_absolute_names ((uri,ns,"",["*"]) :: deps) in
       flat_ns := List.map (function
-         | NS_type tt -> assert false (* are type names relative to current namespace *)
-         | NS_bind (k,t) -> let k = (uri^"$"^k)
-           in NS_bind (k,(normalize_term_names uri globals t))
-         | NS_expr t -> NS_expr (normalize_term_names uri globals t)
+         | NS_type tt -> assert false (* are type names relative to current namespace? *)
+         | NS_bind (k,t) -> let k = to_absolute uri k (term_n t)
+           in NS_bind (k,(normalize_term_names uri diff t))
+         | NS_expr t -> NS_expr (normalize_term_names uri diff t)
          | t -> t
       ) ns @ !flat_ns;
    ) nss; !flat_ns
@@ -85,7 +92,7 @@ let extract_system (globals: (string,(typ list)) hash_table) (ns: namespace): ((
            (print_endline ("break up identifier: "^s));
            if ns#has s then ns#get s else
            (print_endline ("Could not find symbol "^s^" in namespace."); exit 1)
-    ) (string_split " " s))
+    ) (string_split "[\n]" s))
     in (a := ((n,ts) :: !a))
     | App(n,l,r) -> c := ((term_n l),(term_n r),n) :: !c
     | Abs(n,p,b) -> let ns = ns#shadow() in ns#del p; (
