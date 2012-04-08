@@ -98,14 +98,14 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): (((int*(t
     )
     | Abs(n,p,b) -> (
       let ns = ns#shadow() in
-      let pt,bt,tt = (get_option !option_typesystem)#new_tarr(None,None,None) in
-      ns#set p pt;
-      extract_term_system ns b;
-      a := (n,[tt]) :: !a
+      let pt,bt,tt = (get_option !option_typesystem)#new_tarr(None,None,
+                      (if List.mem_assoc n !a then Some(List.nth (List.assoc n !a) 0) else None)) in
+      ns#set p pt; extract_term_system ns b;
+      if not (List.mem_assoc n !a) then a := (n,[tt]) :: !a
     )
   ) in 
   List.iter (function
-   | NS_bind(s,t) -> extract_term_system globals t
+   | NS_bind(s,t) -> a := (term_n t,[descript t]) :: !a; extract_term_system globals t
    | NS_expr t -> extract_term_system globals t
    | _ -> ()
   ) ns; (!a,!c)
@@ -118,8 +118,40 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): (((int*(t
 
 (* STEP 5. fix_namespace : annotated_namespace -> namespace *)
 let fix_namespace ((ns,a): annotated_namespace): namespace = (
+   let globals = new hashtable in
+   List.iter(function
+     | NS_bind(k,t) -> (
+       try globals#set k (List.assoc (term_n t) a)
+       with Not_found -> (print_endline ("Could not find annotation for global term: "^k); exit 1)
+     )| _ -> ()
+   ) ns;
+   print_endline("|globals| in fix_namespace = "^(string_of_int (List.length (globals#items())) ));
+   List.iter (fun (k,v) ->
+      print_endline ("NS_bind "^k^" : "^v)
+   ) (globals#items());
    (* TODO: remove ambiguities in referencing polymorphic global functions *)
-   ns
+   let rec fix_term : term -> term = function
+   | Var(n,s) -> 
+     let vs = string_split "[\n]" s in
+     if List.length vs=1 then Var(n,s) else (
+        let tvs = List.map (fun v -> 
+           try ((globals#get v), v) with Not_found ->
+           (print_endline("Missing variable "^v^" when searching for var:type in context"); exit 1)
+        ) vs in
+        let nt = try List.assoc n a with Not_found -> 
+        (print_endline("Missing term "^(string_of_int n)^" when searching for term:type in context"); exit 1)in
+        let s' = try List.assoc nt tvs with Not_found -> 
+        (print_endline("Missing type "^nt^" when searching for var:type in context"); exit 1) in
+        Var(n,s')
+     )
+   | Abs(n,p,b) -> Abs(n,p,fix_term b)
+   | App(n,l,r) -> App(n,fix_term l,fix_term r)
+   | Con(n,v,tt) -> Con(n,v,tt) in
+   List.map (function
+   | NS_bind(k,t) -> NS_bind(k,fix_term t)
+   | NS_expr(t) -> NS_expr(fix_term t)
+   | ns_item -> ns_item
+   ) ns
 )
 
 

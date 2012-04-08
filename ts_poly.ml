@@ -79,8 +79,10 @@ class checker: type_system = object (this)
    method new_tarr : (typ option * typ option * typ option) -> (typ*typ*typ) = fun (mpt,mbt,mtt) -> (
       let pt = this#parse_internal 0 (match mpt with Some tt -> tt | None -> this#new_tvar()) in
       let bt = this#parse_internal 0 (match mbt with Some tt -> tt | None -> this#new_tvar()) in
-      let tt = match mtt with Some tt -> assert false | None -> PT_Arrow(pt,bt) in
-      ((this#pp_type pt),(this#pp_type bt),(this#pp_type tt))
+      let tt = match mtt with Some tt -> (this#parse_internal 0 tt) | None -> PT_Arrow(pt,bt) in
+      match tt with
+      | PT_Arrow(pt,bt) as tt -> ((this#pp_type pt),(this#pp_type bt),(this#pp_type tt))
+      | _ -> assert false
    )
    method check (objects :(int*(typ list)) list) (arrows :(int*int*int) list): (int*typ) list = (
       let objects : (int*(pt_type list)) list = 
