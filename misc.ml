@@ -15,6 +15,8 @@ let rec string_join : string -> string list -> string = fun sep -> function
    | [] -> ""
    | s :: [] -> s
    | s :: ss -> s ^ sep ^ (string_join sep ss)
+let string_split : string -> string -> string list = fun sep ->
+   split (regexp sep)
 
 let id x = x
 let ($) x f = f x
