@@ -181,13 +181,21 @@ let annotate (rb: resource_bundle): annotated_namespace = (
 let test_cases : (type_system * ((int*(typ list)) list) * ((int*int*int) list)) list = [
    (new Ts_simple.checker, [(1,["'a -> 'a"]);(2,["int"])], [(1,2,3)]);
    (new Ts_simple.checker, [(1,["'a -> 'a -> 'a"]);(2,["int"]);(3,["int"])], [(1,2,4);(4,3,5)]);
-   (new Ts_poly.checker, [(1,["int -> int"; "unit -> unit"]);(2,["int"])], [(1,2,3)])
+   (new Ts_poly.checker, [(1,["'a -> 'a"]);(2,["int"])], [(1,2,3)]);
+   (new Ts_poly.checker, [(1,["'a -> 'a -> 'a"]);(2,["int"]);(3,["int"])], [(1,2,4);(4,3,5)]);
+   (new Ts_poly.checker, [(1,["int -> int"; "unit -> unit"]);(2,["int"])], [(1,2,3)]);
+   (new Ts_luck.checker, [(1,["'a -> 'a"]);(2,["int"])], [(1,2,3)]);
+   (new Ts_luck.checker, [(1,["'a -> 'a -> 'a"]);(2,["int"]);(3,["int"])], [(1,2,4);(4,3,5)]);
+   (new Ts_luck.checker, [(1,["int -> int"; "unit -> unit"]);(2,["int"])], [(1,2,3)]);
+   (new Ts_luck.checker, [(1,["int -> (int,int)"; "unit -> (unit,unit)"]);(2,["int"])], [(1,2,3)])
 ]
 
 let test () = (
+   let i = ref 0 in
    List.iter (fun (checker, objects, arrows) ->
+      incr i;
       let solution = checker#check objects arrows in
-      print_endline "Solution to equation set:";
+      print_endline ("Solution to equation set #"^(string_of_int !i)^":");
       List.iter (fun (i,tt) ->
          print_endline ("t#"^(string_of_int i)^" : "^tt)
       ) solution; print_endline ""; ()
