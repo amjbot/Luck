@@ -187,7 +187,12 @@ let test_cases : (type_system * ((int*(typ list)) list) * ((int*int*int) list)) 
    (new Ts_luck.checker, [(1,["'a -> 'a"]);(2,["int"])], [(1,2,3)]);
    (new Ts_luck.checker, [(1,["'a -> 'a -> 'a"]);(2,["int"]);(3,["int"])], [(1,2,4);(4,3,5)]);
    (new Ts_luck.checker, [(1,["int -> int"; "unit -> unit"]);(2,["int"])], [(1,2,3)]);
-   (new Ts_luck.checker, [(1,["int -> (int,int)"; "unit -> (unit,unit)"]);(2,["int"])], [(1,2,3)])
+   (new Ts_luck.checker, [(1,["int -> (int,int)"; "unit -> (unit,unit)"]);(2,["int"])], [(1,2,3)]);
+   (new Ts_luck.checker, [(1,["(unit|int) -> unit"]);(2,["int"])], [(1,2,3)]);
+   (new Ts_luck.checker, [(1,["forall a. 'a -> 'a"]);(2,["int"])], [(1,2,3)]);
+   (new Ts_luck.checker, [(1,["int -> (MyType,int)"]);(2,["int"])], [(1,2,3)]);
+   (new Ts_luck.checker, [(1,["forall a. (mu b. Nil|(Cons,'a,'b)) -> 'a"]);(2,["mu a. Nil|(Cons,int,'a)"])], [(1,2,3)]);
+   (new Ts_luck.checker, [(1,["forall a. list['a] -> 'a"]);(2,["list[int]"])], [(1,2,3)])
 ]
 
 let test () = (
