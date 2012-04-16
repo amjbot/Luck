@@ -55,12 +55,12 @@ class checker: type_system = object (this)
       ( this#parse_internal_type >>= fun tt -> (return (this#pp_type tt)) ) st
    val var_count = ref 0
    val var_cache : (string,int) hash_table = new hashtable
-   method private new_st_tvar () = let tvar = LT_Var !var_count in incr var_count; tvar
-   method new_tvar () = this#pp_type (this#new_st_tvar())
-   method private get_tvar (s: string) = if not (var_cache#has s) then var_cache#set s !var_count; incr var_count; LT_Var (var_cache#get s)
+   method private new_st_tvar () = let tvar = !var_count in incr var_count; tvar
+   method new_tvar () = this#pp_type (LT_Var (this#new_st_tvar()))
+   method private get_tvar (s: string) = if not (var_cache#has s) then var_cache#set s !var_count; incr var_count; (var_cache#get s)
    method private parse_internal_atom (st: unit CharParse.CharPrim.state) : (unit, lt_type) CharParse.CharPrim.rcon = (
       ( symbolChar '\'' >> (
-         (identifier >>= fun v -> return (this#get_tvar v)) <|>
+         (identifier >>= fun v -> return (LT_Var (this#get_tvar v))) <|>
          (integer >>= fun n -> return (LT_Var n))
       )) <|>
       ( identifier >>= fun v -> return (LT_Ground (v,[])) ) <|>
@@ -71,7 +71,17 @@ class checker: type_system = object (this)
    ) st
    method private parse_internal_type (st: unit CharParse.CharPrim.state) : (unit, lt_type) CharParse.CharPrim.rcon = 
    let table = [
-      [Infix (AssocRight, reservedOp "->" >> return (fun t1 t2 -> LT_Arrow(t1,t2) ))]
+      [Infix (AssocRight, reservedOp "->" >> return (fun t1 t2 -> LT_Arrow(t1,t2) ))];
+      [Infix (AssocRight, reservedOp "|" >> return (fun t1 t2 -> match (t1,t2) with 
+         | (LT_Poly ts1),(LT_Poly ts2) -> LT_Poly (ts1 @ ts2)
+         | (LT_Poly ts1),t2 -> LT_Poly (ts1 @ [t2])
+         | t1,(LT_Poly ts2) -> LT_Poly ([t1] @ ts2)
+         | t1,t2 -> LT_Poly [t1;t2]
+      ))];
+      [Prefix (reserved "forall" >> identifier >>= fun p -> reservedOp "." 
+               >> return (fun t -> LT_Forall ((this#get_tvar p),t)) )];
+      [Prefix (reserved "recursive" >> identifier >>= fun p -> reservedOp "." 
+               >> return (fun t -> LT_Recursive ((this#get_tvar p),t)) )];
    ] in
     ( (((buildExpressionParser table this#parse_internal_tuple) <?> "type") st ) : ('a, lt_type) CharParse.CharPrim.rcon)
 
@@ -111,7 +121,7 @@ class checker: type_system = object (this)
              | t1,t2 -> LT_Poly [t1; t2]
           ) else tt in type_context#set i tt
       ) ts ) objects;
-      let type_lookup (i: int) = if not (type_context#has i) then type_context#set i (this#new_st_tvar()); type_context#get i in
+      let type_lookup (i: int) = if not (type_context#has i) then type_context#set i (LT_Var (this#new_st_tvar())); type_context#get i in
       let rec sub_tvar (i: int) (rt: lt_type) = function
       | LT_Arrow (pt,bt) -> LT_Arrow (sub_tvar i rt pt, sub_tvar i rt bt)
       | LT_Var v -> if v=i then rt else LT_Var v
