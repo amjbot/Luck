@@ -50,6 +50,7 @@ type lt_type = LT_Ground of string * (lt_type list)
              | LT_Tuple of lt_type list
              | LT_Forall of int * lt_type
              | LT_Recursive of int * lt_type
+             (* Subtypes can be generalized to union types *)
 class checker: type_system = object (this)
    method parse (st: unit CharParse.CharPrim.state) : (unit, typ) CharParse.CharPrim.rcon =
       ( this#parse_internal_type >>= fun tt -> (return (this#pp_type tt)) ) st
