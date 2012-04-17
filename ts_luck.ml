@@ -56,7 +56,8 @@ class checker: type_system = object (this)
    val var_count = ref 0
    val var_cache : (string,int) hash_table = new hashtable
    method private new_st_tvar () = let tvar = !var_count in incr var_count; tvar
-   method new_tvar () = this#pp_type (LT_Var (this#new_st_tvar()))
+   method private new_lt_tvar () = LT_Var (this#new_st_tvar())
+   method new_tvar () = this#pp_type (this#new_lt_tvar())
    method private get_tvar (s: string) = if not (var_cache#has s) then var_cache#set s !var_count; incr var_count; (var_cache#get s)
    method private parse_internal_atom (st: unit CharParse.CharPrim.state) : (unit, lt_type) CharParse.CharPrim.rcon = (
       ( symbolChar '\'' >> (
@@ -108,6 +109,7 @@ class checker: type_system = object (this)
       | LT_Arrow(pt,bt) as tt -> ((this#pp_type pt),(this#pp_type bt),(this#pp_type tt))
       | _ -> assert false
    )
+   method private unify (l: lt_type) (r: lt_type) = raise Not_found
    method check (objects :(int*(typ list)) list) (arrows :(int*int*int) list): (int*typ) list = (
       let objects : (int*(lt_type list)) list = 
       List.map (fun (i,ts) -> i, List.map (fun tt -> this#parse_internal i tt) ts) objects in
@@ -129,18 +131,25 @@ class checker: type_system = object (this)
       let previous_state = ref [] in 
       while !previous_state <> (type_context#items())
       do previous_state := (type_context#items()); List.iter( fun (l,r,t) ->
+          (* how does information flow through the system? 
+             what is the shape of the L<: group?
+          *)
           let lt = type_lookup l in
           let rt = type_lookup r in
           let tt = type_lookup t in
           (match (lt,rt) with
-          | (LT_Arrow ((LT_Var ti),_)), _ -> type_context#set l (sub_tvar ti rt lt)
-          | (LT_Arrow (pt,_)), _ -> ()
-          | (LT_Poly plt),_ -> let flt = List.filter (function LT_Arrow (pt,bt) -> pt=rt | _ -> false) plt in
-            if (List.length flt) = 1 then type_context#set l (List.nth flt 0)
+          | (LT_Var ti),_ -> let lt = (LT_Arrow (this#new_lt_tvar(),this#new_lt_tvar())) 
+            in type_context#set l lt; type_context#set ti lt
+          | (LT_Arrow (pt,_)),_  -> (try this#unify pt rt with Not_found -> assert false)
+          | (LT_Poly plt),_ -> 
+            let flt = List.filter (function 
+              | LT_Arrow (pt,_) -> (try (this#unify pt rt; true) with Not_found -> false)
+              | _ -> false
+            ) plt in if (List.length flt)=1 then type_context#set l (List.nth flt 0)
           | _ -> ());
           (match (lt,tt) with
-          | (LT_Arrow (_,bt)),(LT_Var ti) -> type_context#set t bt
-          | (LT_Arrow(_,bt)),_ -> ()
+          | (LT_Arrow (_,bt)),(LT_Var ti) -> type_context#set t bt; type_context#set ti bt
+          | (LT_Arrow(_,bt)),_ -> (try this#unify bt tt with Not_found -> assert false)
           | _ -> ())
       ) arrows done;
       let constraints_satisified = ref true in
@@ -152,7 +161,7 @@ class checker: type_system = object (this)
           let tt = type_lookup t in
           (match (lt,rt) with
           | (LT_Arrow (pt,_)), _ -> if (ppt pt)<>(ppt rt)
-          then (break_constraint ("Invalid argument to function: "^(ppt pt)^" "^(ppt rt)))
+          then (break_constraint ("Invalid argument to function. Expected "^(ppt pt)^" but received "^(ppt rt)))
           | _ -> break_constraint ("Must be function to apply: "^(ppt lt)) );
           (match (lt,tt) with
           | (LT_Arrow (_,bt)), _ -> if (ppt bt)<>(ppt tt)
