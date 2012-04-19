@@ -130,11 +130,9 @@ class checker: type_system = object (this)
              | t1,t2 -> LT_Poly [t1; t2]
           ) else tt in type_context#set i tt
       ) ts ) objects;
-      
       let rec type_lookup (type_context: (int,lt_type)hash_table) (i: int) = (
-         if not (type_context#has i)
-         then type_context#set i (LT_Var (this#new_st_tvar()));
-         type_realize type_context (type_context#get i)
+         if not (type_context#has i) then LT_Var i
+         else type_realize type_context (type_context#get i)
       ) and type_realize (type_context: (int,lt_type)hash_table) (t: lt_type) = (
          match t with
          | LT_Ground(s,ts) -> LT_Ground(s,(List.map (type_realize type_context) ts))
