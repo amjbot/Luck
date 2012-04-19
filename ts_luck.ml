@@ -110,7 +110,13 @@ class checker: type_system = object (this)
       | LT_Arrow(pt,bt) as tt -> ((this#pp_type pt),(this#pp_type bt),(this#pp_type tt))
       | _ -> assert false
    )
-   method private unify (l: lt_type) (r: lt_type) = raise Not_found
+   method private unify (type_context: (int,lt_type) hash_table) (l: lt_type) (r: lt_type) = (
+      print_endline ("Unify "^(this#pp_type l)^" with "^(this#pp_type r));
+      match l,r with
+      | (LT_Var li), r -> type_context#set li r
+      | l,(LT_Var ri) -> type_context#set ri l
+      | l,r -> print_endline ("Unify "^(this#pp_type l)^" with "^(this#pp_type r))
+   )
    method check (objects :(int*(typ list)) list) (arrows :(int*int*int) list): (int*typ) list = (
       let objects : (int*(lt_type list)) list = 
       List.map (fun (i,ts) -> i, List.map (fun tt -> this#parse_internal i tt) ts) objects in
@@ -124,7 +130,34 @@ class checker: type_system = object (this)
              | t1,t2 -> LT_Poly [t1; t2]
           ) else tt in type_context#set i tt
       ) ts ) objects;
-      let type_lookup (i: int) = if not (type_context#has i) then type_context#set i (LT_Var (this#new_st_tvar())); type_context#get i in
+      
+      let rec type_lookup (type_context: (int,lt_type)hash_table) (i: int) = (
+         if not (type_context#has i)
+         then type_context#set i (LT_Var (this#new_st_tvar()));
+         type_realize type_context (type_context#get i)
+      ) and type_realize (type_context: (int,lt_type)hash_table) (t: lt_type) = (
+         match t with
+         | LT_Ground(s,ts) -> LT_Ground(s,(List.map (type_realize type_context) ts))
+         | LT_Sigil(s) -> LT_Sigil(s)
+         | LT_Arrow(lt,rt) -> LT_Arrow((type_realize type_context) lt,(type_realize type_context) rt)
+         | LT_Var(vi) -> (
+            let type_context = type_context#shadow() in
+            type_context#del vi;
+            type_lookup type_context vi
+         )
+         | LT_Poly(ts) -> LT_Poly(List.map (type_realize type_context) ts)
+         | LT_Tuple(ts) -> LT_Tuple(List.map (type_realize type_context) ts)
+         | LT_Forall(ti,ts) ->  (
+            let type_context = type_context#shadow() in
+            type_context#set ti (LT_Var ti);
+            LT_Forall(ti,(type_realize type_context ts))
+         )
+         | LT_Recursive(ti,t) -> (
+            let type_context = type_context#shadow() in
+            type_context#set ti (LT_Var ti);
+            LT_Recursive(ti,(type_realize type_context t))
+         )
+      ) in
       let rec sub_tvar (i: int) (rt: lt_type) = function
       | LT_Arrow (pt,bt) -> LT_Arrow (sub_tvar i rt pt, sub_tvar i rt bt)
       | LT_Var v -> if v=i then rt else LT_Var v
@@ -135,31 +168,30 @@ class checker: type_system = object (this)
           (* how does information flow through the system? 
              what is the shape of the L<: group?
           *)
-          let lt = type_lookup l in
-          let rt = type_lookup r in
-          let tt = type_lookup t in
+          let lt = type_lookup type_context l in
+          let rt = type_lookup type_context r in
+          let tt = type_lookup type_context t in
           (match (lt,rt) with
           | (LT_Var ti),_ -> let lt = (LT_Arrow (this#new_lt_tvar(),this#new_lt_tvar())) 
-            in type_context#set l lt; type_context#set ti lt
-          | (LT_Arrow (pt,_)),_  -> (try this#unify pt rt with Not_found -> assert false)
+            in type_context#set ti lt
+          | (LT_Arrow (pt,_)),_  -> (try this#unify type_context pt rt with Not_found -> assert false)
           | (LT_Poly plt),_ -> 
-            let flt = List.filter (function 
-              | LT_Arrow (pt,_) -> (try (this#unify pt rt; true) with Not_found -> false)
+            let flt = List.filter (function
+              | LT_Arrow (pt,_) -> (try (this#unify type_context pt rt; true) with Not_found -> false)
               | _ -> false
             ) plt in if (List.length flt)=1 then type_context#set l (List.nth flt 0)
           | _ -> ());
           (match (lt,tt) with
-          | (LT_Arrow (_,bt)),(LT_Var ti) -> type_context#set t bt; type_context#set ti bt
-          | (LT_Arrow(_,bt)),_ -> (try this#unify bt tt with Not_found -> assert false)
+          | (LT_Arrow(_,bt)),_ -> (try this#unify type_context bt tt with Not_found -> assert false)
           | _ -> ())
       ) arrows done;
       let constraints_satisified = ref true in
       let break_constraint s = print_endline s; constraints_satisified := false in
       let ppt = this#pp_type in
       List.iter( fun (l,r,t) ->
-          let lt = type_lookup l in
-          let rt = type_lookup r in
-          let tt = type_lookup t in
+          let lt = type_lookup type_context l in
+          let rt = type_lookup type_context r in
+          let tt = type_lookup type_context t in
           (match (lt,rt) with
           | (LT_Arrow (pt,_)), _ -> if (ppt pt)<>(ppt rt)
           then (break_constraint ("Invalid argument to function. Expected "^(ppt pt)^" but received "^(ppt rt)))
