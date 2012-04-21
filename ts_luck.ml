@@ -94,14 +94,16 @@ class checker: type_system = object (this)
         Success x -> x
       | Failure err -> raise (TypeError (i, ("In <string> "^(Error.M.errorToString err))))
    )
-   method private pp_type (tt: lt_type): string = match tt with
-   | LT_Var v -> "'"^(string_of_int v)
-   | LT_Ground (g,ps) -> g^(if List.length ps=0 then "" else ("["^(string_join "," (List.map this#pp_type ps))^"]"))
-   | LT_Arrow (p,b) -> "("^(this#pp_type p)^" -> "^(this#pp_type b)^")"
-   | LT_Poly ts -> "("^(string_join " | " (List.map this#pp_type ts))^")"
-   | LT_Tuple ts -> "("^(string_join "," (List.map this#pp_type ts))^")"
-   | LT_Forall(n,lt) -> "(forall "^(string_of_int n)^". "^(this#pp_type lt)^")"
-   | LT_Recursive(n,lt) -> "(recursive "^(string_of_int n)^". "^(this#pp_type lt)^")"
+   method private pp_type (tt: lt_type): string = (
+      match tt with
+      | LT_Var v -> "'"^(string_of_int v)
+      | LT_Ground (g,ps) -> g^(if List.length ps=0 then "" else ("["^(string_join "," (List.map this#pp_type ps))^"]"))
+      | LT_Arrow (p,b) -> "("^(this#pp_type p)^" -> "^(this#pp_type b)^")"
+      | LT_Poly ts -> "("^(string_join " | " (List.map this#pp_type ts))^")"
+      | LT_Tuple ts -> "("^(string_join "," (List.map this#pp_type ts))^")"
+      | LT_Forall(n,lt) -> "(forall "^(string_of_int n)^". "^(this#pp_type lt)^")"
+      | LT_Recursive(n,lt) -> "(recursive "^(string_of_int n)^". "^(this#pp_type lt)^")"
+   )
    method new_tarr : (typ option * typ option * typ option) -> (typ*typ*typ) = fun (mpt,mbt,mtt) -> (
       let pt = this#parse_internal 0 (match mpt with Some tt -> tt | None -> this#new_tvar()) in
       let bt = this#parse_internal 0 (match mbt with Some tt -> tt | None -> this#new_tvar()) in
@@ -112,6 +114,7 @@ class checker: type_system = object (this)
    )
    method private type_lookup (type_context: (int,lt_type)hash_table) (i: int) = (
          if not (type_context#has i) then LT_Var i
+         else if (type_context#get i)=(LT_Var i) then LT_Var i
          else this#type_realize type_context (type_context#get i)
    )
    method private type_realize (type_context: (int,lt_type)hash_table) (t: lt_type) = (
@@ -119,14 +122,10 @@ class checker: type_system = object (this)
       | LT_Ground(s,ts) -> LT_Ground(s,(List.map (this#type_realize type_context) ts))
       | LT_Sigil(s) -> LT_Sigil(s)
       | LT_Arrow(lt,rt) -> LT_Arrow((this#type_realize type_context) lt,(this#type_realize type_context) rt)
-      | LT_Var(vi) -> (
-         let type_context = type_context#shadow() in
-         type_context#del vi;
-         this#type_lookup type_context vi
-      )
+      | LT_Var(vi) -> this#type_lookup type_context vi
       | LT_Poly(ts) -> LT_Poly(List.map (this#type_realize type_context) ts)
       | LT_Tuple(ts) -> LT_Tuple(List.map (this#type_realize type_context) ts)
-      | LT_Forall(ti,ts) ->  (
+      | LT_Forall(ti,ts) -> (
          let type_context = type_context#shadow() in
          type_context#set ti (LT_Var ti);
          LT_Forall(ti,(this#type_realize type_context ts))
@@ -138,12 +137,14 @@ class checker: type_system = object (this)
       )
    )
    method private unify (type_context: (int,lt_type) hash_table) (l: lt_type) (r: lt_type): unit = (
-      print_endline ("Unify: "^(this#pp_type (this#type_realize type_context l))^" with "^(this#pp_type (this#type_realize type_context r)));
-      match l,r with
-      | (LT_Var li), r -> type_context#set li r
-      | l,(LT_Var ri) -> type_context#set ri l
-      | l,r -> print_endline ("Unify "^(this#pp_type l)^" with "^(this#pp_type r));
-      print_endline ("Unify result: "^(this#pp_type (this#type_realize type_context l))^" with "^(this#pp_type (this#type_realize type_context r)))
+      (match l,r with
+         | (LT_Var li),(LT_Var ri) -> ()
+         | (LT_Var li),r -> type_context#set li r
+         | l,(LT_Var ri) -> type_context#set ri l
+         | l,r -> (if (this#type_realize type_context l)<>(this#type_realize type_context r) then
+                   (print_endline ("Could not unify "^(this#pp_type l)^" with "^(this#pp_type r));
+                    assert false) )
+      )
    )
    method check (objects :(int*(typ list)) list) (arrows :(int*int*int) list): (int*typ) list = (
       let objects : (int*(lt_type list)) list = 
