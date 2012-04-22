@@ -112,6 +112,8 @@ class checker: type_system = object (this)
       | LT_Arrow(pt,bt) as tt -> ((this#pp_type pt),(this#pp_type bt),(this#pp_type tt))
       | _ -> assert false
    )
+   method private type_instantiate (type_context: (int,lt_type)hash_table) (t: lt_type) = (
+   )
    method private type_lookup (type_context: (int,lt_type)hash_table) (i: int) = (
          if not (type_context#has i) then LT_Var i
          else if (type_context#get i)=(LT_Var i) then LT_Var i
@@ -135,6 +137,38 @@ class checker: type_system = object (this)
          type_context#set ti (LT_Var ti);
          LT_Recursive(ti,(this#type_realize type_context t))
       )
+   )
+   method private arrow_head (type_context: (int,lt_type)hash_table) (t: lt_type) = (
+      let t = this#type_realize type_context t in
+      match t with
+      | LT_Forall(ti,tt) -> (
+        let type_context = type_context#shadow() in
+        type_context#set ti (this#new_lt_tvar());
+        this#arrow_head type_context tt
+      )
+      | LT_Recursive(ti,tt) -> (
+        let type_context = type_context#shadow() in
+        type_context#set ti tt;
+        this#arrow_head type_context tt
+      )
+      | LT_Arrow(pt,bt) -> pt
+      | _ -> assert false
+   )
+   method private arrow_tail (type_context: (int,lt_type)hash_table) (t: lt_type) = (
+      let t = this#type_realize type_context t in
+      match t with
+      | LT_Forall(ti,tt) -> (
+        let type_context = type_context#shadow() in
+        type_context#set ti (this#new_lt_tvar());
+        this#arrow_head type_context tt
+      )
+      | LT_Recursive(ti,tt) -> (
+        let type_context = type_context#shadow() in
+        type_context#set ti tt;
+        this#arrow_head type_context tt
+      )
+      | LT_Arrow(pt,bt) -> bt
+      | _ -> assert false
    )
    method private unify (type_context: (int,lt_type)hash_table) (l: lt_type) (r: lt_type): unit = (
       (* information flows, left to right -> 
@@ -181,7 +215,7 @@ class checker: type_system = object (this)
           let rt = this#type_lookup type_context r in
           let tt = this#type_lookup type_context t in
           (match (lt,rt) with
-          | (LT_Var ti),_ -> let lt = (LT_Arrow (this#new_lt_tvar(),this#new_lt_tvar())) 
+          | (LT_Var ti),_ -> let lt = (LT_Arrow (this#new_lt_tvar(),this#new_lt_tvar()))
             in type_context#set ti lt
           | (LT_Arrow (pt,_)),_  -> (try this#unify type_context rt pt with Not_found -> 
             (print_endline("Could not unify function parameter "^(this#pp_type pt)^" with "^(this#pp_type rt)); assert false))
@@ -202,14 +236,10 @@ class checker: type_system = object (this)
           let lt = this#type_lookup type_context l in
           let rt = this#type_lookup type_context r in
           let tt = this#type_lookup type_context t in
-          (match (lt,rt) with
-          | (LT_Arrow (pt,_)), _ -> try this#unify type_context rt pt
-          with Not_found -> (break_constraint ("Invalid argument to function. Expected "^(ppt pt)^" but received "^(ppt rt)))
-          | _ -> break_constraint ("Must be function to apply: "^(ppt lt)) );
-          (match (lt,tt) with
-          | (LT_Arrow (_,bt)), _ -> try (this#unify type_context bt tt; this#unify type_context tt bt)
-          with Not_found -> (break_constraint ("Function signature disagrees with returned value: function "^(ppt lt)^" returned "^(ppt tt)))
-          | _ -> ())(* already caught by previous match pattern *)
+          (try this#unify type_context rt (this#arrow_head type_context lt)
+          with Not_found -> (break_constraint ("Invalid argument to function. Expected "^(ppt (this#arrow_head type_context lt))^" but received "^(ppt rt))));
+          (try (this#unify type_context (this#arrow_tail type_context lt) tt; this#unify type_context tt (this#arrow_tail type_context lt))
+          with Not_found -> (break_constraint ("Function signature disagrees with returned value: function "^(ppt lt)^" returned "^(ppt tt))))
       ) arrows;
       if not (!constraints_satisified) then exit 1;
       List.map (fun (i,tt) -> (i, this#pp_type tt)) (type_context#items())
