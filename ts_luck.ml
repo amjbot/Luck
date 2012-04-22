@@ -142,6 +142,9 @@ class checker: type_system = object (this)
       (match l,r with
          | (LT_Var li),(LT_Var ri) -> ()
          | l,(LT_Var ri) -> type_context#set ri l
+         | (LT_Poly _),(LT_Poly _) -> ()
+         | (LT_Poly _),r -> assert false
+         | l,(LT_Poly _) -> ()
          | (LT_Forall(ti,ts)),r -> (
             let type_context = type_context#shadow() in
             type_context#set ti (this#new_lt_tvar());
@@ -174,25 +177,22 @@ class checker: type_system = object (this)
       ) arrows;*)
       while !previous_state <> (type_context#items())
       do previous_state := (type_context#items()); List.iter( fun (l,r,t) ->
-          (* how does information flow through the system? 
-             what is the shape of the L<: group?
-          *)
           let lt = this#type_lookup type_context l in
           let rt = this#type_lookup type_context r in
           let tt = this#type_lookup type_context t in
           (match (lt,rt) with
           | (LT_Var ti),_ -> let lt = (LT_Arrow (this#new_lt_tvar(),this#new_lt_tvar())) 
             in type_context#set ti lt
-          | (LT_Arrow (pt,_)),_  -> (try this#unify type_context pt rt with Not_found -> 
+          | (LT_Arrow (pt,_)),_  -> (try this#unify type_context rt pt with Not_found -> 
             (print_endline("Could not unify function parameter "^(this#pp_type pt)^" with "^(this#pp_type rt)); assert false))
           | (LT_Poly plt),_ -> 
             let flt = List.filter (function
-              | LT_Arrow (pt,_) -> (try (this#unify type_context pt rt; true) with Not_found -> false)
+              | LT_Arrow (pt,_) -> (try (this#unify type_context rt pt; true) with Not_found -> false)
               | _ -> false
             ) plt in if (List.length flt)=1 then type_context#set l (List.nth flt 0)
           | _ -> ());
           (match (lt,tt) with
-          | (LT_Arrow(_,bt)),_ -> (try this#unify type_context bt tt with Not_found -> assert false)
+          | (LT_Arrow(_,bt)),_ -> (try (this#unify type_context bt tt; this#unify type_context tt bt) with Not_found -> assert false)
           | _ -> ())
       ) arrows done;
       let constraints_satisified = ref true in
@@ -203,12 +203,12 @@ class checker: type_system = object (this)
           let rt = this#type_lookup type_context r in
           let tt = this#type_lookup type_context t in
           (match (lt,rt) with
-          | (LT_Arrow (pt,_)), _ -> if (ppt pt)<>(ppt rt)
-          then (break_constraint ("Invalid argument to function. Expected "^(ppt pt)^" but received "^(ppt rt)))
+          | (LT_Arrow (pt,_)), _ -> try this#unify type_context rt pt
+          with Not_found -> (break_constraint ("Invalid argument to function. Expected "^(ppt pt)^" but received "^(ppt rt)))
           | _ -> break_constraint ("Must be function to apply: "^(ppt lt)) );
           (match (lt,tt) with
-          | (LT_Arrow (_,bt)), _ -> if (ppt bt)<>(ppt tt)
-          then (break_constraint ("Function signature disagrees with returned value: function "^(ppt lt)^" returned "^(ppt tt)))
+          | (LT_Arrow (_,bt)), _ -> try (this#unify type_context bt tt; this#unify type_context tt bt)
+          with Not_found -> (break_constraint ("Function signature disagrees with returned value: function "^(ppt lt)^" returned "^(ppt tt)))
           | _ -> ())(* already caught by previous match pattern *)
       ) arrows;
       if not (!constraints_satisified) then exit 1;
