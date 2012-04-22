@@ -136,12 +136,17 @@ class checker: type_system = object (this)
          LT_Recursive(ti,(this#type_realize type_context t))
       )
    )
-   method private unify (type_context: (int,lt_type) hash_table) (l: lt_type) (r: lt_type): unit = (
-      (* print_endline ("Unify "^(this#pp_type l)^" with "^(this#pp_type r)); *)
+   method private unify (type_context: (int,lt_type)hash_table) (l: lt_type) (r: lt_type): unit = (
+      (* information flows, left to right -> 
+         type variables can be overriden, real types cannot *)
       (match l,r with
          | (LT_Var li),(LT_Var ri) -> ()
-         | (LT_Var li),r -> type_context#set li r
          | l,(LT_Var ri) -> type_context#set ri l
+         | (LT_Forall(ti,ts)),r -> (
+            let type_context = type_context#shadow() in
+            type_context#set ti (this#new_lt_tvar());
+            this#unify type_context ts r
+         )
          | l,r -> (if (this#type_realize type_context l)<>(this#type_realize type_context r) then raise Not_found)
       )
    )
