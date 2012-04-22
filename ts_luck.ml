@@ -137,13 +137,12 @@ class checker: type_system = object (this)
       )
    )
    method private unify (type_context: (int,lt_type) hash_table) (l: lt_type) (r: lt_type): unit = (
+      (* print_endline ("Unify "^(this#pp_type l)^" with "^(this#pp_type r)); *)
       (match l,r with
          | (LT_Var li),(LT_Var ri) -> ()
          | (LT_Var li),r -> type_context#set li r
          | l,(LT_Var ri) -> type_context#set ri l
-         | l,r -> (if (this#type_realize type_context l)<>(this#type_realize type_context r) then
-                   (print_endline ("Could not unify "^(this#pp_type l)^" with "^(this#pp_type r));
-                    assert false) )
+         | l,r -> (if (this#type_realize type_context l)<>(this#type_realize type_context r) then raise Not_found)
       )
    )
    method check (objects :(int*(typ list)) list) (arrows :(int*int*int) list): (int*typ) list = (
@@ -164,6 +163,10 @@ class checker: type_system = object (this)
       | LT_Var v -> if v=i then rt else LT_Var v
       | tt -> tt in
       let previous_state = ref [] in 
+      (*List.iter (fun (l,r,t) -> 
+         let l,r,t = (this#type_lookup type_context l, this#type_lookup type_context r, this#type_lookup type_context t) in
+         print_endline ((this#pp_type l)^" $ "^(this#pp_type r)^" => "^(this#pp_type t))
+      ) arrows;*)
       while !previous_state <> (type_context#items())
       do previous_state := (type_context#items()); List.iter( fun (l,r,t) ->
           (* how does information flow through the system? 
@@ -175,7 +178,8 @@ class checker: type_system = object (this)
           (match (lt,rt) with
           | (LT_Var ti),_ -> let lt = (LT_Arrow (this#new_lt_tvar(),this#new_lt_tvar())) 
             in type_context#set ti lt
-          | (LT_Arrow (pt,_)),_  -> (try this#unify type_context pt rt with Not_found -> assert false)
+          | (LT_Arrow (pt,_)),_  -> (try this#unify type_context pt rt with Not_found -> 
+            (print_endline("Could not unify function parameter "^(this#pp_type pt)^" with "^(this#pp_type rt)); assert false))
           | (LT_Poly plt),_ -> 
             let flt = List.filter (function
               | LT_Arrow (pt,_) -> (try (this#unify type_context pt rt; true) with Not_found -> false)
