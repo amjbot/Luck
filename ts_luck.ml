@@ -115,29 +115,37 @@ class checker: type_system = object (this)
       | LT_Arrow(pt,bt) as tt -> ((this#pp_type pt),(this#pp_type bt),(this#pp_type tt))
       | _ -> assert false
    )
-   method private type_instantiate (type_context: (int,lt_type)hash_table) (t: lt_type) = (
-   )
    method private type_lookup (type_context: (int,lt_type)hash_table) (i: int) = (
-         if not (type_context#has i) then LT_Var i
-         else if (type_context#get i)=(LT_Var i) then LT_Var i
-         else this#type_realize type_context (type_context#get i)
+      if not (type_context#has i) then LT_Var i
+      else if (type_context#get i)=(LT_Var i) then LT_Var i
+      else this#type_realize type_context (type_context#get i)
    )
    method private type_realize (type_context: (int,lt_type)hash_table) (t: lt_type) = (
+      (*
+      List.iter (fun (k,v) ->
+         print_endline (""^(string_of_int k)^" -> "^(this#pp_type v))
+      ) (type_context#items());
+      print_endline ("type_realize "^(this#pp_type t));
+      *)
       match t with
       | LT_Ground(s,ts) -> LT_Ground(s,(List.map (this#type_realize type_context) ts))
       | LT_Sigil(s) -> LT_Sigil(s)
       | LT_Arrow(lt,rt) -> LT_Arrow((this#type_realize type_context) lt,(this#type_realize type_context) rt)
-      | LT_Var(vi) -> this#type_lookup type_context vi
+      | LT_Var(vi) -> (
+        let type_context = type_context#shadow() in
+        type_context#set vi (LT_Var vi);
+        this#type_lookup type_context vi
+      )
       | LT_Poly(ts) -> LT_Poly(List.map (this#type_realize type_context) ts)
       | LT_Tuple(ts) -> LT_Tuple(List.map (this#type_realize type_context) ts)
       | LT_Forall(ti,ts) -> (
          let type_context = type_context#shadow() in
-         type_context#set ti (LT_Var ti);
+         type_context#set ti (this#new_lt_tvar());
          LT_Forall(ti,(this#type_realize type_context ts))
       )
       | LT_Recursive(ti,t) -> (
          let type_context = type_context#shadow() in
-         type_context#set ti (LT_Var ti);
+         type_context#set ti t;
          LT_Recursive(ti,(this#type_realize type_context t))
       )
    )
@@ -176,6 +184,8 @@ class checker: type_system = object (this)
    method private unify (type_context: (int,lt_type)hash_table) (l: lt_type) (r: lt_type): unit = (
       (* information flows, left to right -> 
          type variables can be overriden, real types cannot *)
+      let l = this#type_realize type_context l in
+      let r = this#type_realize type_context r in
       (match l,r with
          | (LT_Var li),(LT_Var ri) -> ()
          | l,(LT_Var ri) -> type_context#set ri l
@@ -227,7 +237,7 @@ class checker: type_system = object (this)
           | (LT_Var ti),_ -> let lt = (LT_Arrow (this#new_lt_tvar(),this#new_lt_tvar()))
             in type_context#set ti lt
           | (LT_Arrow (pt,_)),_  -> (try this#unify type_context rt pt with Not_found -> 
-            (print_endline("Could not unify function parameter "^(this#pp_type pt)^" with "^(this#pp_type rt)); assert false))
+            (print_endline("Could not unify function parameter "^(this#pp_type pt)^" with "^(this#pp_type rt)); exit 1))
           | (LT_Poly plt),_ -> 
             let flt = List.filter (function
               | LT_Arrow (pt,_) -> (try (this#unify type_context rt pt; true) with Not_found -> false)
@@ -235,7 +245,8 @@ class checker: type_system = object (this)
             ) plt in if (List.length flt)=1 then type_context#set l (List.nth flt 0)
           | _ -> ());
           (match (lt,tt) with
-          | (LT_Arrow(_,bt)),_ -> (try (this#unify type_context bt tt; this#unify type_context tt bt) with Not_found -> assert false)
+          | (LT_Arrow(_,bt)),_ -> (try (this#unify type_context bt tt; this#unify type_context tt bt) with Not_found ->
+          (print_endline("Could not unify function body "^(this#pp_type bt)^" with return type "^(this#pp_type tt))); exit 1 )
           | _ -> ())
       ) arrows done;
       let constraints_satisified = ref true in
