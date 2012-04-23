@@ -180,13 +180,19 @@ class checker: type_system = object (this)
          | (LT_Var li),(LT_Var ri) -> ()
          | l,(LT_Var ri) -> type_context#set ri l
          | (LT_Poly _),(LT_Poly _) -> ()
-         | (LT_Poly _),r -> assert false
+         | (LT_Poly _),r -> raise Not_found
          | l,(LT_Poly _) -> ()
          | (LT_Forall(ti,ts)),r -> (
             let type_context = type_context#shadow() in
             type_context#set ti (this#new_lt_tvar());
             this#unify type_context ts r
          )
+         | (LT_Ground(lg,ls)),(LT_Ground(rg,rs)) -> if lg=rg && (List.length ls)=(List.length rs)
+           then List.iter2 (fun ll rr -> this#unify type_context ll rr) ls rs
+           else raise Not_found
+         | (LT_Tuple ls),(LT_Tuple rs) -> if (List.length ls)=(List.length rs)
+           then List.iter2 (fun ll rr -> this#unify type_context ll rr) ls rs
+           else raise Not_found
          | l,r -> (if (this#type_realize type_context l)<>(this#type_realize type_context r) then raise Not_found)
       )
    )
