@@ -65,7 +65,10 @@ class checker: type_system = object (this)
          (identifier >>= fun v -> return (LT_Var (this#get_tvar v))) <|>
          (integer >>= fun n -> return (LT_Var n))
       )) <|>
-      ( identifier >>= fun v -> return (LT_Ground (v,[])) ) <|>
+      ( identifier >>= fun v -> 
+                  (optionRet (brackets (sepBy1 this#parse_internal_atom (reservedOp ",")) ))
+                   >>= fun vs -> return (let ts = (match vs with None -> [] | (Some ss) -> ss) in LT_Ground (v,ts)) 
+      ) <|>
       (parens this#parse_internal_type)
    ) st
    method private parse_internal_tuple (st: unit CharParse.CharPrim.state) : (unit, lt_type) CharParse.CharPrim.rcon = (
