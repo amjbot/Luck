@@ -177,7 +177,7 @@ class checker: type_system = object (this)
         this#arrow_head type_context tt
       )
       | LT_Arrow(n,pt,bt) -> pt
-      | _ -> assert false
+      | _ -> (print_endline ("Cannot find head of arrow: "^(this#pp_type t)); assert false)
    )
    method private arrow_tail (type_context: (int,indexed_type)hash_table) (t: indexed_type) = (
       let t = this#type_realize type_context t in
@@ -193,7 +193,7 @@ class checker: type_system = object (this)
         this#arrow_head type_context tt
       )
       | LT_Arrow(n,pt,bt) -> bt
-      | _ -> assert false
+      | _ -> (print_endline ("Cannot find tail of arrow: "^(this#pp_type t)); assert false)
    )
    method private unify (type_context: (int,indexed_type)hash_table) (l: int) (r: int): unit = (
       (* information flows, left to right -> 
