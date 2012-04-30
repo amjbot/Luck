@@ -60,19 +60,25 @@ let type_n = function
    | LT_Tuple(n,_) -> n
    | LT_Forall(n,_,_) -> n
    | LT_Recursive(n,_,_) -> n
+let lt_ground (g: string) (gs: indexed_type list) = LT_Ground (unique_int(),g,gs)
+let lt_sigil (g: string) = LT_Sigil (unique_int(),g)
+let lt_arrow (p: indexed_type) (b: indexed_type) = LT_Arrow (unique_int(),p,b)
+let lt_var () = LT_Var (unique_int())
+let lt_poly (ts: indexed_type list) = LT_Poly (unique_int(),ts)
+let lt_tuple (ts: indexed_type list) = LT_Tuple (unique_int(),ts)
+let lt_forall (t: int) (tt: indexed_type) = LT_Forall (unique_int(),t,tt)
+let lt_recursive (t: int) (tt: indexed_type) = LT_Recursive (unique_int(),t,tt)
 
 class checker: type_system = object (this)
 
-   val id_count = ref 0
-   method private new_id() = let d = !id_count in incr id_count; d
    val var_cache : (string,int) hash_table = new hashtable
-   method private new_internal_tvar () = LT_Var (this#new_id())
+   method private new_internal_tvar () = LT_Var (unique_int())
    method new_tvar () = this#pp_type (this#new_internal_tvar())
-   method private get_tvar (s: string) = if not (var_cache#has s) then var_cache#set s !id_count; incr id_count; (var_cache#get s)
+   method private get_tvar (s: string) = if not (var_cache#has s) then var_cache#set s (unique_int()); (var_cache#get s)
    method new_tarr : (typ option * typ option * typ option) -> (typ*typ*typ) = fun (mpt,mbt,mtt) -> (
       let pt = this#parse_internal 0 (match mpt with Some tt -> tt | None -> this#new_tvar()) in
       let bt = this#parse_internal 0 (match mbt with Some tt -> tt | None -> this#new_tvar()) in
-      let tt = match mtt with Some tt -> (this#parse_internal 0 tt) | None -> LT_Arrow(this#new_id(),pt,bt) in
+      let tt = match mtt with Some tt -> (this#parse_internal 0 tt) | None -> LT_Arrow(unique_int(),pt,bt) in
       match tt with
       | LT_Arrow(n,pt,bt) as tt -> ((this#pp_type pt),(this#pp_type bt),(this#pp_type tt))
       | _ -> assert false
@@ -83,30 +89,30 @@ class checker: type_system = object (this)
    method private parse_internal_atom (st: unit CharParse.CharPrim.state) : (unit, indexed_type) CharParse.CharPrim.rcon = (
       ( symbolChar '\'' >> (
          (identifier >>= fun v -> return (LT_Var (this#get_tvar v))) <|>
-         (integer >>= fun n -> return (LT_Var n))
+         (integer >>= fun n -> return (lt_var ()))
       )) <|>
       ( identifier >>= fun v -> 
                   (optionRet (brackets (sepBy1 this#parse_internal_atom (reservedOp ",")) ))
-                   >>= fun vs -> return (let ts = (match vs with None -> [] | (Some ss) -> ss) in LT_Ground (this#new_id(),v,ts)) 
+                   >>= fun vs -> return (let ts = (match vs with None -> [] | (Some ss) -> ss) in lt_ground v ts) 
       ) <|>
       (parens this#parse_internal_type)
    ) st
    method private parse_internal_tuple (st: unit CharParse.CharPrim.state) : (unit, indexed_type) CharParse.CharPrim.rcon = (
-     sepBy1 this#parse_internal_atom (reservedOp ",") >>= fun ts -> return (if (List.length ts)=1 then (List.nth ts 0) else LT_Tuple(this#new_id(),ts))
+     sepBy1 this#parse_internal_atom (reservedOp ",") >>= fun ts -> return (if (List.length ts)=1 then (List.nth ts 0) else lt_tuple ts)
    ) st
    method private parse_internal_type (st: unit CharParse.CharPrim.state) : (unit, indexed_type) CharParse.CharPrim.rcon = 
    let table = [
-      [Infix (AssocRight, reservedOp "->" >> return (fun t1 t2 -> LT_Arrow(this#new_id(),t1,t2) ))];
+      [Infix (AssocRight, reservedOp "->" >> return (fun t1 t2 -> lt_arrow t1 t2 ))];
       [Infix (AssocRight, reservedOp "|" >> return (fun t1 t2 -> match (t1,t2) with 
-         | (LT_Poly(_,ts1)),(LT_Poly(_,ts2)) -> LT_Poly(this#new_id(), (ts1 @ ts2))
-         | (LT_Poly(_,ts1)),t2 -> LT_Poly(this#new_id(), (ts1 @ [t2]))
-         | t1,(LT_Poly(_,ts2)) -> LT_Poly(this#new_id(), ([t1] @ ts2))
-         | t1,t2 -> LT_Poly(this#new_id(), [t1;t2])
+         | (LT_Poly(_,ts1)),(LT_Poly(_,ts2)) -> lt_poly(ts1 @ ts2)
+         | (LT_Poly(_,ts1)),t2 -> lt_poly (ts1 @ [t2])
+         | t1,(LT_Poly(_,ts2)) -> lt_poly ([t1] @ ts2)
+         | t1,t2 -> lt_poly ([t1;t2])
       ))];
       [Prefix (reserved "forall" >> identifier >>= fun p -> reservedOp "." 
-               >> return (fun t -> LT_Forall(this#new_id(),(this#get_tvar p),t)) )];
+               >> return (fun t -> lt_forall (this#get_tvar p) t) )];
       [Prefix (reserved "recursive" >> identifier >>= fun p -> reservedOp "." 
-               >> return (fun t -> LT_Recursive(this#new_id(),(this#get_tvar p),t)) )];
+               >> return (fun t -> lt_recursive (this#get_tvar p) t) )];
    ] in
     ( (((buildExpressionParser table this#parse_internal_tuple) <?> "type") st ) : ('a, indexed_type) CharParse.CharPrim.rcon)
    method private parse_internal (i: int) (tt: string): indexed_type = (
@@ -227,10 +233,10 @@ class checker: type_system = object (this)
       List.iter( fun (i,ts) -> List.iter( fun tt ->
           let tt = if type_context#has i then 
           (match tt, (type_context#get i) with 
-             | (LT_Poly(_,ts1)),(LT_Poly(_,ts2)) -> LT_Poly(this#new_id(),(ts1 @ ts2))
-             | (LT_Poly(_,ts1)),t2 -> LT_Poly(this#new_id(),ts1 @ [t2])
-             | t1,(LT_Poly(_,ts2)) -> LT_Poly(this#new_id(), ([t1] @ ts2))
-             | t1,t2 -> LT_Poly(this#new_id(), [t1; t2])
+             | (LT_Poly(_,ts1)),(LT_Poly(_,ts2)) -> LT_Poly(unique_int(),(ts1 @ ts2))
+             | (LT_Poly(_,ts1)),t2 -> LT_Poly(unique_int(),ts1 @ [t2])
+             | t1,(LT_Poly(_,ts2)) -> LT_Poly(unique_int(), ([t1] @ ts2))
+             | t1,t2 -> LT_Poly(unique_int(), [t1; t2])
           ) else tt in type_context#set i tt
       ) ts ) objects;
       let rec sub_tvar (i: int) (rt: indexed_type) = function
@@ -238,12 +244,12 @@ class checker: type_system = object (this)
       | LT_Var v -> if v=i then rt else LT_Var v
       | tt -> tt in
       let previous_state = ref [] in 
-      (*List.iter (fun (l,r,t) -> 
-         let l,r,t = (this#type_lookup type_context l, this#type_lookup type_context r, this#type_lookup type_context t) in
-         print_endline ((this#pp_type l)^" $ "^(this#pp_type r)^" => "^(this#pp_type t))
-      ) arrows;*)
       while !previous_state <> (type_context#items())
       do previous_state := (type_context#items()); List.iter( fun (l,r,t) ->
+          List.iter (fun (l,r,t) -> 
+             let l,r,t = (this#type_lookup type_context l, this#type_lookup type_context r, this#type_lookup type_context t) in
+             print_endline ((this#pp_type l)^" $ "^(this#pp_type r)^" => "^(this#pp_type t))
+          ) arrows;
           let lt = this#type_lookup type_context l in
           let rt = this#type_lookup type_context r in
           let tt = this#type_lookup type_context t in
