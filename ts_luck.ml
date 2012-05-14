@@ -152,12 +152,10 @@ and type_lookup (type_context: (int,indexed_type)hash_table) (i: int) = (
    *)
    if not (type_context#has i) then LT_Var i
    else if (type_context#get i)=(LT_Var i) then LT_Var i
-   else (* type_realize type_context (type_context#get i) *)
-        (type_context#get i)
+   else type_realize type_context (type_context#get i)
 )
 let rec unify (type_context: (int,indexed_type)hash_table) (l: int) (r: int): unit = (
    (* information flows, left to right -> type variables can be overriden, real types cannot *)
-   if true then () else
    let lt = type_lookup type_context l in
    let rt = type_lookup type_context r in
    (match lt,rt with
@@ -236,7 +234,6 @@ class checker: type_system = object (this)
    )
 
    method check (objects :(int*(typ list)) list) (arrows :(int*int*int) list): (int*typ) list = (
-      print_endline "Start new check";
       let tarr_map : (int,int)hash_table = new hashtable in
       let tarr_map_get i = (if not(tarr_map#has i) then tarr_map#set i (unique_int()); tarr_map#get i) in
       let objects : (int*(indexed_type list)) list = List.map (fun (i,ts) -> 
