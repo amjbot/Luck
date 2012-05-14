@@ -119,7 +119,7 @@ let rec arrow_tail ?c:(type_context=new hashtable) (t: indexed_type) = (
    | LT_Arrow(n,pt,bt) -> bt
    | _ -> (print_endline ("Cannot find tail of arrow: "^(pp_type t)); assert false)
 )
-let rec type_realize (type_context: (int,indexed_type)hash_table) (t: indexed_type) = (
+let rec type_realize (type_context: (int,indexed_type)hash_table) (t: indexed_type): indexed_type = (
    (*
    List.iter (fun (k,v) ->
       print_endline (""^(string_of_int k)^" -> "^(pp_type v))
@@ -140,13 +140,14 @@ let rec type_realize (type_context: (int,indexed_type)hash_table) (t: indexed_ty
    | LT_Poly(n,ts) -> LT_Poly(n,List.map (type_realize type_context) ts)
    | LT_Tuple(n,ts) -> LT_Tuple(n,List.map (type_realize type_context) ts)
    | LT_Forall(n,ti,ts) -> (
-      let type_context = type_context#shadow() in
-      type_context#set ti (lt_var());
-      LT_Forall(n,ti,(type_realize type_context ts))
+      let type_context' = type_context#shadow() in
+      type_context'#set ti (lt_var());
+      let t = type_realize type_context' ts in
+      type_context#set n t; t
    )
    | LT_Recursive(n,ti,t) -> (
       let type_context = type_context#shadow() in
-      type_context#set ti t;
+      type_context#set ti (LT_Var ti);
       LT_Recursive(n,ti,(type_realize type_context t))
    )
 )
@@ -171,11 +172,13 @@ let rec unify (type_context: (int,indexed_type)hash_table) (l: int) (r: int): un
       | (LT_Poly _),(LT_Poly _) -> ()
       | (LT_Poly _),r -> raise Not_found
       | l,(LT_Poly _) -> ()
+(*
       | (LT_Forall(_,ti,ts)),r -> (
          let type_context = type_context#shadow() in
          type_context#set ti (lt_var());
          unify type_context (type_n ts) (type_n r)
       )
+*)
       | (LT_Ground(_,lg,ls)),(LT_Ground(_,rg,rs)) -> if lg=rg && (List.length ls)=(List.length rs)
         then List.iter2 (fun ll rr -> unify type_context (type_n ll) (type_n rr)) ls rs
         else raise Not_found
