@@ -172,13 +172,6 @@ let rec unify (type_context: (int,indexed_type)hash_table) (l: int) (r: int): un
       | (LT_Poly _),(LT_Poly _) -> ()
       | (LT_Poly _),r -> raise Not_found
       | l,(LT_Poly _) -> ()
-(*
-      | (LT_Forall(_,ti,ts)),r -> (
-         let type_context = type_context#shadow() in
-         type_context#set ti (lt_var());
-         unify type_context (type_n ts) (type_n r)
-      )
-*)
       | (LT_Ground(_,lg,ls)),(LT_Ground(_,rg,rs)) -> if lg=rg && (List.length ls)=(List.length rs)
         then List.iter2 (fun ll rr -> unify type_context (type_n ll) (type_n rr)) ls rs
         else raise Not_found
