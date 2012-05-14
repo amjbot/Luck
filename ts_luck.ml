@@ -80,7 +80,8 @@ let rec pp_type (tt: indexed_type): string = (
    | LT_Forall(_,n,lt) -> "(forall "^(string_of_int n)^". "^(pp_type lt)^")"
    | LT_Recursive(_,n,lt) -> "(recursive "^(string_of_int n)^". "^(pp_type lt)^")"
 )
-let rec (<:) a b = try (match (a,b) with
+let rec (<:) a b = (
+   try (match (a,b) with
    | LT_Ground(_,g1,ps1), LT_Ground(_,g2,ps2) -> g1=g2 && (List.for_all2 (<:) ps1 ps2)
    | LT_Arrow(_,p1,b1),LT_Arrow(_,p2,b2) -> p2 <: p1 && b1 <: b2
    | LT_Poly(_,ts1), LT_Poly(_,ts2) -> List.for_all (fun a -> List.exists (fun b -> a <: b) ts2) ts1
@@ -88,7 +89,7 @@ let rec (<:) a b = try (match (a,b) with
    | LT_Tuple(_,ts1), LT_Tuple(_,ts2) -> List.for_all2 (<:) ts1 ts2 
    | _ -> print_endline ("<: is undefined on types "^(pp_type a)^" <: "^(pp_type b)); exit 1
    ) with Invalid_argument _ -> false
-
+)
 let rec arrow_head ?c:(type_context=new hashtable) (t: indexed_type) = (
    match t with
    | LT_Forall(n,ti,tt) -> (

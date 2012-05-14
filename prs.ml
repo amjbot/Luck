@@ -16,7 +16,7 @@ struct
   let opStart st = oneOf (explode "!%&$#+-/:<=>>@\\~'^|*") st
   let opLetter st = oneOf (List.filter (fun i -> not (List.mem (String.make 1 i) reservedOpNames)) (explode "!%&$#+-/:<=>>@\\~'^|*")) st
   let reservedNames =
-    ["_"; "and"; "as"; "case"; "catch"; "do"; "else";
+    ["_"; "and"; "as"; "catch"; "do"; "else";
      "fn"; "for"; "function"; "if"; "import"; "in"; 
      "let"; "new"; "of"; "or"; "property"; "then"; "throw"; 
      "type"; "with"; "while"]
@@ -66,6 +66,7 @@ let rec pCONST st = (
 ) st
 and pATOM st = (
    pCONST <|>
+   (parens pEXPR) <|>
    (brackets (commaSep pEXPR) >>= fun ls -> 
       return (List.fold_left
          (fun t v -> binop ".add" t v) (var "[]") ls
@@ -175,14 +176,13 @@ and pEXPR st =
        Infix (AssocLeft, reservedOp "+=" >> return (fun e1 e2 -> binop "+=" e1 e2  ))
     ];
 
-    [
     (* Throw Expression *)
-     Nonfix ( reserved "throw" >> (pEXPR
+    [Nonfix ( reserved "throw" >> (pEXPR
               >>= fun e1 -> return (uniop "throw" e1)
-    ) <?> "if expression" );    
+    ) <?> "throw expression" )];
 
     (* If Expression *)
-     Nonfix ( reserved "if" >> (pEXPR
+    [Nonfix ( reserved "if" >> (pEXPR
               >>= fun e1 -> reserved "then" >> pEXPR
               >>= fun e2 -> ((reserved "else" >> pEXPR) <|> return (var "()"))
               >>= fun e3 -> return (triop "if" e1 e2 e3)
@@ -205,9 +205,15 @@ and pEXPR st =
     (* Sequence Operator *)
     [Infix (AssocLeft, reservedOp ";" >> return (fun e1 e2 -> binop ";" e1 e2  ))];
 
-  ] in ((buildExpressionParser table pSIMPLEEXPR) <?> "expression") st
-
-
+  ] in (
+  (attempt
+     ((pSIMPLEEXPR) >>= fun l -> reservedOp ":" >> 
+     (many1(braces( pLHS >>= fun a -> reservedOp "->" >> pEXPR >>= fun b -> return (a,b)) ))
+     >>= fun r -> return (app (pattern r) l) )
+  ) <|>
+  (buildExpressionParser table pSIMPLEEXPR) <?> "expression") st
+and pLHS st = pATOM st
+	
 
 let pEXPRSTMT st = ((pEXPR >>= fun x -> return (NS_expr x)) <?> "expression") st;;
 let pTYPESTMT st = ((pTYPE >>= fun x -> return (NS_type x)) <?> "type declaration") st;;

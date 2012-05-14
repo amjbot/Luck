@@ -95,3 +95,4 @@ let pp_namespace: namespace -> string = function
 let uniop op a = app (var op) a
 let binop op a b = app (app (var op) a) b
 let triop op a b c = app (app (app (var op) a) b ) c
+let pattern pbs = (var "#TODO pattern")
