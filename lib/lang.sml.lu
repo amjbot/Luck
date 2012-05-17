@@ -1,6 +1,8 @@
 
-function exit(code:int): 'a = @ "(Unix.exit (Word8.fromInt " code "))"
-function exit(_:unit): 'a = @ "(Unix.exit (Word8.fromInt 0))"
+function exit(code:int): 'a = (@ "(Unix.exit (Word8.fromInt " code "))")
+function exit(_:unit): 'a = (@ "(Unix.exit (Word8.fromInt 0))")
+
+function print(s:string): unit = (@ "(print " s ")")
 
 (*
 type PatternNotMatched

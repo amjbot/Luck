@@ -198,8 +198,8 @@ and pEXPR st =
     [Infix (AssocLeft, reservedOp "|" >> return (fun e1 e2 -> binop "|" e1 e2  ))];
 
     (* Lambda Declaration *)
-    [Prefix ( reservedOp "\\" >> identifier
-              >>= fun p -> reservedOp "."
+    [Prefix ( reserved "fn" >> identifier
+              >>= fun p -> reservedOp "="
               >> return (fun e -> abs p e) )];
 
     (* Sequence Operator *)

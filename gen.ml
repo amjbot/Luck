@@ -88,6 +88,8 @@ class sml_language : target_language = object (this)
       ) ^ (if (List.length term_binds)>0 then ";\n\n" else "") ^ (
          string_join ";\n" (List.map this#translate_term term_stmts)
       ) ^ (if (List.length term_stmts)>0 then ";" else "") in
+      print_endline "MLton program source:";
+      print_endline sml_source;
       (* compile with mlton *)
       let exe_file = !option_out in
       let tmp_name,tmp_out = Filename.open_temp_file "tmpluck_" ".sml" in
