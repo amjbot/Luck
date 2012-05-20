@@ -1,3 +1,4 @@
-"hello world" | print
+print("hello world\n")
+(* "hello world" | print *)
 (* print((fn a = a)("hello world\n")) *)
 (* "hello world" | (fn a = a) | print *)
