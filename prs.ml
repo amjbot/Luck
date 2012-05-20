@@ -198,9 +198,7 @@ and pEXPR st =
     [Infix (AssocLeft, reservedOp "|" >> return (fun e1 e2 -> binop "|" e1 e2  ))];
 
     (* Lambda Declaration *)
-    [Prefix ( reserved "fn" >> identifier
-              >>= fun p -> reservedOp "="
-              >> return (fun e -> abs p e) )];
+    [Nonfix ((reserved "fn" >> pFUNCTION_BODY) <?> "lambda expression")];
 
     (* Sequence Operator *)
     [Infix (AssocLeft, reservedOp ";" >> return (fun e1 e2 -> binop ";" e1 e2  ))];
@@ -213,6 +211,30 @@ and pEXPR st =
   ) <|>
   (buildExpressionParser table pSIMPLEEXPR) <?> "expression") st
 and pLHS st = pATOM st
+and pFUNCTIONPARAMIDENT st = (
+   identifier <|>
+   ((reserved "_") >> (return "_"))
+) st
+and pOPTIONALTYPE st = (
+   (reservedOp ":" >> ((pTYPE >>= fun t -> return (Some t)) <?> "ascribed type")) <|>
+   (return None)
+) st
+and pFUNCTIONPARAM st = (
+   parens (pFUNCTIONPARAMIDENT >>= fun p -> pOPTIONALTYPE >>= fun tt -> return ((fun b -> abs p b), tt))
+) st
+and pFUNCTION_BODY st = (
+   (many1 pFUNCTIONPARAM) >>= fun ps ->
+   pOPTIONALTYPE >>= fun rt -> (reservedOp "=") >>
+   pEXPR >>= fun b -> return (
+      let (f,ft) = List.fold_right (
+         fun (p,pt) (b,rt) -> let (_,_,ft) = tarr (pt, rt, None) in
+         ((p b),Some ft)
+      ) (ps: ((term -> term)*(typ option)) list)
+        ( (b:term), (rt:typ option) ) in
+      let ft = quantify (get_option ft) in
+      ascript f ft; f
+   )
+) st;;
 	
 
 let pEXPRSTMT st = ((pEXPR >>= fun x -> return (NS_expr x)) <?> "expression") st;;
@@ -228,28 +250,10 @@ let pFUNCTIONIDENT st = (
    (identifier >>= fun i -> return i) <|>
    (reservedOp "." >> identifier >>= fun i -> return ("."^i))
 ) st;;
-let pFUNCTIONPARAMIDENT st = (
-   identifier <|>
-   ((reserved "_") >> (return "_"))
-) st;;
-let pOPTIONALTYPE st = (
-   (reservedOp ":" >> ((pTYPE >>= fun t -> return (Some t)) <?> "ascribed type")) <|>
-   (return None)
-) st;;
-let pFUNCTIONPARAM st = (
-   parens (pFUNCTIONPARAMIDENT >>= fun p -> pOPTIONALTYPE >>= fun tt -> return ((fun b -> abs p b), tt))
-) st;;
 let pFUNCTION st = (
-   pFUNCTIONIDENT >>= fun fn -> (many1 pFUNCTIONPARAM) >>= fun ps -> 
-   pOPTIONALTYPE >>= fun rt -> (reservedOp "=") >> pEXPR >>= fun b -> return (
-      let (f,ft) = List.fold_right (
-         fun (p,pt) (b,rt) -> let (_,_,ft) = tarr (pt, rt, None) in
-         ((p b),Some ft)
-      ) (ps: ((term -> term)*(typ option)) list)
-        ( (b:term), (rt:typ option) ) in
-      ascript f (get_option ft); 
-      NS_bind(fn,f)
-   )
+   pFUNCTIONIDENT >>= fun fn -> 
+   pFUNCTION_BODY >>= fun f ->
+   return (NS_bind(fn,f))
 ) st;;
 
 let pLETSTMT st = ((

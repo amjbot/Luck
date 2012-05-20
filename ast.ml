@@ -57,6 +57,7 @@ let var s = Var(unique_int(), s)
 let app l r = App (unique_int(), l, r)
 let abs p b = Abs (unique_int(), p, b)
 let tarr (os: typ option *  typ option * typ option): (typ*typ*typ) = (get_option (!option_typesystem))#new_tarr os
+let quantify (t: typ) = t
 let tvar (): typ = (get_option (!option_typesystem))#new_tvar ()
 
 let term_n = function
