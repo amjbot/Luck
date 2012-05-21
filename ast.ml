@@ -1,5 +1,6 @@
 (* Subtle change is real change. *)
 open Misc
+open Str
 
 type file_bundle               = filename list
 and  resource_bundle           = resource list
@@ -57,8 +58,25 @@ let var s = Var(unique_int(), s)
 let app l r = App (unique_int(), l, r)
 let abs p b = Abs (unique_int(), p, b)
 let tarr (os: typ option *  typ option * typ option): (typ*typ*typ) = (get_option (!option_typesystem))#new_tarr os
-let quantify (t: typ) = t
 let tvar (): typ = (get_option (!option_typesystem))#new_tvar ()
+let quantify (t: typ): typ = (
+    let tvar_pattern = regexp "['][a-zA-Z0-9]+" in
+    let open_types = ref [] in
+    let closed_types = ref [] in
+    let si = ref 0 in
+    (try while true do
+        si := (Str.search_forward tvar_pattern t !si)+1;
+        open_types := (Str.matched_string t) :: !open_types
+    done with Not_found -> ());
+    let quantified_t = ref t in
+    (List.iter (fun s ->
+        if not (List.mem s !closed_types) then
+        (quantified_t := ("forall "^s^". ") ^ (!quantified_t);
+        closed_types := s :: !closed_types)
+    ) !open_types);
+    (print_endline ("Quantify function type: "^t^" becomes "^(!quantified_t)));
+    !quantified_t
+)
 
 let term_n = function
    | Con (n,_,_) -> n

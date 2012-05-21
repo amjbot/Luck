@@ -77,7 +77,7 @@ let rec pp_type (tt: indexed_type): string = (
    | LT_Arrow(_,p,b) -> "("^(pp_type p)^" -> "^(pp_type b)^")"
    | LT_Poly(_,ts) -> "("^(string_join " | " (List.map pp_type ts))^")"
    | LT_Tuple(_,ts) -> "("^(string_join "," (List.map pp_type ts))^")"
-   | LT_Forall(_,n,lt) -> "(forall "^(string_of_int n)^". "^(pp_type lt)^")"
+   | LT_Forall(_,n,lt) -> "(forall '"^(string_of_int n)^". "^(pp_type lt)^")"
    | LT_Recursive(_,n,lt) -> "(recursive "^(string_of_int n)^". "^(pp_type lt)^")"
 )
 let rec (<:) a b = (
@@ -200,11 +200,14 @@ class checker: type_system = object (this)
 
    method parse (st: unit CharParse.CharPrim.state) : (unit, typ) CharParse.CharPrim.rcon =
       ( this#parse_internal_type >>= fun tt -> (return (pp_type tt)) ) st
-   method private parse_internal_atom (st: unit CharParse.CharPrim.state) : (unit, indexed_type) CharParse.CharPrim.rcon = (
+   method private parse_internal_tvar (st: unit CharParse.CharPrim.state) : (unit, int) CharParse.CharPrim.rcon = (
       ( symbolChar '\'' >> (
-         (identifier >>= fun v -> return (LT_Var (this#get_tvar v))) <|>
-         (integer >>= fun n -> return (lt_var ()))
-      )) <|>
+         (identifier >>= fun v -> return (this#get_tvar v)) <|>
+         (integer >>= fun n -> return n)
+      ))
+   ) st
+   method private parse_internal_atom (st: unit CharParse.CharPrim.state) : (unit, indexed_type) CharParse.CharPrim.rcon = (
+      (this#parse_internal_tvar >>= fun p -> return (LT_Var p)) <|>
       ( identifier >>= fun v ->
                   (optionRet (brackets (sepBy1 this#parse_internal_atom (reservedOp ",")) ))
                    >>= fun vs -> return (let ts = (match vs with None -> [] | (Some ss) -> ss) in lt_ground v ts)
@@ -223,8 +226,8 @@ class checker: type_system = object (this)
          | t1,(LT_Poly(_,ts2)) -> lt_poly ([t1] @ ts2)
          | t1,t2 -> lt_poly ([t1;t2])
       ))];
-      [Prefix (reserved "forall" >> identifier >>= fun p -> reservedOp "." 
-               >> return (fun t -> lt_forall (this#get_tvar p) t) )];
+      [Prefix (reserved "forall" >> this#parse_internal_tvar >>= fun p -> reservedOp "." 
+               >> return (fun t -> lt_forall p t) )];
       [Prefix (reserved "recursive" >> identifier >>= fun p -> reservedOp "." 
                >> return (fun t -> lt_recursive (this#get_tvar p) t) )];
    ] in
@@ -265,7 +268,7 @@ class checker: type_system = object (this)
           print_endline ((pp_type lt)^" $ "^(pp_type rt)^" => "^(pp_type tt));
           (match (lt,rt) with
           | (LT_Var n),_ -> type_context#set n (LT_Arrow (n,lt_var(),lt_var()))
-          | (LT_Arrow (n,pt,_)),_  -> (try unify type_context (type_n rt) (type_n pt) with Not_found -> 
+          | (LT_Arrow (n,pt,_)),_ -> (try unify type_context (type_n rt) (type_n pt) with Not_found -> 
             (print_endline("Could not unify function parameter "^(pp_type pt)^" with "^(pp_type rt)); exit 1))
           | (LT_Poly (n,plt)),_ -> 
             let flt = List.filter (function
