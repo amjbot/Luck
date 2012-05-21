@@ -266,7 +266,7 @@ class checker: type_system = object (this)
       ) ts) objects;
       let previous_state = ref [] in 
       while !previous_state <> (type_context#items())
-      do previous_state := (type_context#items()); print_endline "Iterate solver\n"; List.iter( fun (l,r,t) ->
+      do previous_state := (type_context#items()); List.iter( fun (l,r,t) ->
           let lt = type_lookup type_context l in
           let rt = type_lookup type_context r in
           let tt = type_lookup type_context t in
