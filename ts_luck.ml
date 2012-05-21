@@ -193,9 +193,12 @@ class checker: type_system = object (this)
       let pt = this#parse_internal 0 (match mpt with Some tt -> tt | None -> this#new_tvar()) in
       let bt = this#parse_internal 0 (match mbt with Some tt -> tt | None -> this#new_tvar()) in
       let tt = match mtt with Some tt -> (this#parse_internal 0 tt) | None -> LT_Arrow(unique_int(),pt,bt) in
-      match tt with
+      let rec split_arrow tt = match tt with
       | LT_Arrow(n,pt,bt) as tt -> ((pp_type pt),(pp_type bt),(pp_type tt))
-      | _ -> assert false
+      | LT_Forall(n,_,t) -> let (pt,bt,_) = split_arrow t in (pt,bt,(pp_type tt))
+      | LT_Recursive(n,_,t) -> let (pt,bt,_) = split_arrow t in (pt,bt,(pp_type tt))
+      | _ -> (print_endline ("new_tarr not an arrow: "^(pp_type tt))); assert false
+      in split_arrow tt
    )
 
    method parse (st: unit CharParse.CharPrim.state) : (unit, typ) CharParse.CharPrim.rcon =
