@@ -262,7 +262,6 @@ class checker: type_system = object (this)
              | t1,t2 -> LT_Poly(unique_int(), [t1; t2])
           ) else tt in type_context#set i tt
       ) ts) objects;
-      
       let previous_state = ref [] in 
       while !previous_state <> (type_context#items())
       do previous_state := (type_context#items()); print_endline "Iterate solver\n"; List.iter( fun (l,r,t) ->
@@ -298,6 +297,9 @@ class checker: type_system = object (this)
            then break_constraint ("Function signature disagrees with returned value: function "^(pp_type l)^" returned "^(pp_type t)))
       ) arrows;
       if not (!constraints_satisified) then exit 1;
-      List.map (fun (i,tt) -> (i, pp_type tt)) (type_context#items())
+      let object_id_map = List.filter (fun (original,hidden) -> List.mem_assoc hidden objects) (tarr_map#items()) in
+      List.map (fun (original,hidden) ->
+          (original,(pp_type (type_context#get hidden)))
+      ) object_id_map
    )
 end

@@ -119,8 +119,10 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): (((int*(t
 (* STEP 5. fix_namespace : annotated_namespace -> namespace *)
 let fix_namespace ((ns,a): annotated_namespace): namespace = (
    let globals = new hashtable in
+   List.iter(fun (n,tt) -> print_endline ((string_of_int n)^" "^(tt))) a;
    List.iter(function
      | NS_bind(k,t) -> (
+       print_endline ("Lookup annotation for term "^k^" as #"^(string_of_int (term_n t)));
        try globals#set k (List.assoc (term_n t) a)
        with Not_found -> (print_endline ("Could not find annotation for global term: "^k); exit 1)
      )| _ -> ()
