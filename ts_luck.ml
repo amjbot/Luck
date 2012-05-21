@@ -169,11 +169,13 @@ let rec unify (type_context: (int,indexed_type)hash_table) (l: int) (r: int): un
    let lt = type_lookup type_context l in
    let rt = type_lookup type_context r in
    (match lt,rt with
-      | (LT_Var li),(LT_Var ri) -> ()
+      | (LT_Var li),_ -> ()
       | l,(LT_Var ri) -> type_context#set ri l
       | (LT_Poly _),(LT_Poly _) -> ()
       | (LT_Poly _),r -> raise Not_found
       | l,(LT_Poly _) -> ()
+      | (LT_Arrow (_,p1,b1)),(LT_Arrow (_,p2,b2)) -> 
+        unify type_context (type_n p2) (type_n p1); unify type_context (type_n b1) (type_n b2); ()
       | (LT_Ground(_,lg,ls)),(LT_Ground(_,rg,rs)) -> if lg=rg && (List.length ls)=(List.length rs)
         then List.iter2 (fun ll rr -> unify type_context (type_n ll) (type_n rr)) ls rs
         else raise Not_found
