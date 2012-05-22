@@ -220,7 +220,8 @@ and pOPTIONALTYPE st = (
    (return None)
 ) st
 and pFUNCTIONPARAM st = (
-   parens (pFUNCTIONPARAMIDENT >>= fun p -> pOPTIONALTYPE >>= fun tt -> return ((fun b -> abs p b), tt))
+   parens (pFUNCTIONPARAMIDENT >>= fun p -> pOPTIONALTYPE >>= fun tt -> return ((fun b -> abs p b), tt)) <|>
+   (pFUNCTIONPARAMIDENT >>= fun p -> return ((fun b -> abs p b), None))
 ) st
 and pFUNCTION_BODY st = (
    (many1 pFUNCTIONPARAM) >>= fun ps ->
