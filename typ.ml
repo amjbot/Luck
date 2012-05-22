@@ -134,9 +134,10 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
            try ((globals#get v), v) with Not_found ->
            (print_endline("Missing variable "^v^" when searching for var:type in context"); exit 1)
         ) vs in
-        let nt = try List.assoc n a with Not_found -> 
-        (print_endline("Missing term "^(string_of_int n)^" when searching for term:type in context"); exit 1)in
+        let nt = try (quantify (List.assoc n a)) with Not_found -> 
+        (print_endline("Missing term "^(string_of_int n)^" when searching for term:type in context"); exit 1) in
         let s' = try List.assoc nt tvs with Not_found -> 
+        (List.iter (fun (t,v) -> print_endline ("Var "^v^" has type "^t)) tvs);
         (print_endline("Missing type "^nt^" when searching for var:type in context"); exit 1) in
         Var(n,s')
      )

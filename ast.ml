@@ -62,7 +62,6 @@ let tvar (): typ = (get_option (!option_typesystem))#new_tvar ()
 let quantify (t: typ): typ = (
     let tvar_pattern = regexp "['][a-zA-Z0-9]+" in
     let open_types = ref [] in
-    let closed_types = ref [] in
     let si = ref 0 in
     (try while true do
         si := (Str.search_forward tvar_pattern t !si)+1;
@@ -70,11 +69,10 @@ let quantify (t: typ): typ = (
     done with Not_found -> ());
     let quantified_t = ref t in
     (List.iter (fun s ->
-        if not (List.mem s !closed_types) then
-        (quantified_t := ("forall "^s^". ") ^ (!quantified_t);
-        closed_types := s :: !closed_types)
+        let closed_test = Str.regexp ("forall "^s^"[.]") in
+        if not (Str.string_match closed_test (!quantified_t) 0) then
+        quantified_t := "(forall " ^ s ^ ". " ^ (!quantified_t) ^ ")"
     ) !open_types);
-    (print_endline ("Quantify function type: "^t^" becomes "^(!quantified_t)));
     !quantified_t
 )
 

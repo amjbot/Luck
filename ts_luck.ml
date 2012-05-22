@@ -266,8 +266,20 @@ class checker: type_system = object (this)
           ) else tt in type_context#set i tt
       ) ts) objects;
       let previous_state = ref [] in 
+      print_endline "Initial objects:";
+      List.iter (fun (n,ts) ->
+          print_endline ("#"^(string_of_int n)^" "^(string_join "|" (List.map pp_type ts)));
+      ) objects;
+      print_endline "Initial arrows:";
+      List.iter (fun (l,r,t) -> 
+          let lt = type_lookup type_context l in
+          let rt = type_lookup type_context r in
+          let tt = type_lookup type_context t in
+          print_endline ((pp_type lt)^" $ "^(pp_type rt)^" => "^(pp_type tt))
+      ) arrows;
+      print_endline "";
       while !previous_state <> (type_context#items())
-      do previous_state := (type_context#items()); List.iter( fun (l,r,t) ->
+      do previous_state := (type_context#items()); print_endline "Iterate checker"; List.iter( fun (l,r,t) ->
           let lt = type_lookup type_context l in
           let rt = type_lookup type_context r in
           let tt = type_lookup type_context t in
