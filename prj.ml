@@ -87,5 +87,4 @@ let file2resource (fb: file_bundle) = (
 let resource2annotated (rb: resource_bundle) = Typ.annotate rb
 let annotated2target (arb: annotated_namespace) = Gen.translate arb
 let compile (fb: file_bundle): unit = 
-  if !Ast.option_test then Typ.test() else
   (fb $ file2resource $ resource2annotated $ annotated2target $ ignore)

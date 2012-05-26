@@ -20,13 +20,13 @@ class sml_language : target_language = object (this)
    method private translate_simple_macro (m: term) = (
       let rec flatten_macro_atom = function
       | Con(_,c,tt) as t -> (match tt with
-         | "string" -> c
+         | TType("string",[]) -> c
          | _ -> this#translate_term t
       )| t -> this#translate_term t in
       let rec flatten_macro_body = function
       | App(_,l,r) -> (flatten_macro_body l)^(flatten_macro_atom r) 
       | Con(_,c,tt) as t -> (match tt with
-         | "string" -> c
+         | TType("string",[]) -> c
          | _ -> assert false
       ) in
       match m with
@@ -47,8 +47,8 @@ class sml_language : target_language = object (this)
    method private translate_term (t: term): string = (
       match t with
       | Con(n,v,tt) -> (match tt with 
-         | "int" -> v
-         | "string" -> 
+         | TType("int",[]) -> v
+         | TType("string",[]) -> 
            let v = Str.global_replace (Str.regexp "\n") "\\n" v in
            "\""^v^"\""
          (*
@@ -57,7 +57,7 @@ class sml_language : target_language = object (this)
          ("float", fun s -> s );
          ("char", fun s -> s );
          *)
-         | _ -> print_endline ("Unknown constant type: "^tt); assert false
+         | _ -> print_endline ("Unknown constant type: "^(pp_type tt)); assert false
       )
       | Var(n,k) -> this#translate_ident k
       | Abs(n,p,b) -> "(fn "^(this#translate_ident p)^" => "^(this#translate_term b)^")"
@@ -65,10 +65,10 @@ class sml_language : target_language = object (this)
       | App(n,f,x) -> (* if is_applied_macro f then this#translate_macro f [x] else *)
         "("^(this#translate_term f)^" "^(this#translate_term x)^")"
    )
-   method translate (ns,a) = (
+   method translate ((ns,a):annotated_namespace): target_executable = (
       print_endline ("|annotations| = "^(string_of_int (List.length a)));
       List.iter (
-         fun (n,t) -> print_endline ((string_of_int n)^" : "^t)
+         fun (n,t) -> print_endline ((string_of_int n)^" : "^(pp_type t))
       ) a;
       let type_binds = List.flatten (List.map (function
          (* how should this work? *)

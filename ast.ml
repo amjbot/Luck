@@ -7,7 +7,7 @@ and  resource_bundle           = resource list
 and  annotated_namespace       = namespace * ((int * typ) list) 
 and  target_executable         = filename list
 
-(* "Namespaces are one honking great idea -- let's do more of those!" -- Tim Peters *)
+(* Namespaces are one honking great idea -- let's do more of those! *)
 and  symbolic_link             = string * string * (string list) (* uri, prefix, symbols *)
 and  hard_link                 = string * namespace * string * (string list) (* uri, namespace, prefix, symbols *)
 and  filename                  = string
@@ -31,50 +31,50 @@ and term =
    | Var of int * string                      (* variable reference *)
    | Abs of int * string * term               (* lambda abstraction *)
    | App of int * term * term                 (* function application *)
-and typ = string
-
-class type type_system = object
-   method parse : unit CharParse.CharPrim.state -> (unit, typ) CharParse.CharPrim.rcon
-   method check : (int*(typ list)) list -> (int*int*int) list -> (int*typ) list
-                  (* annotations *) (* applications *) (* solution *)
-                  (* NOTE: one term can have more than one type, in the case of ambiguous references to global variables *)
-                  (* NOTE: multiple types on the same constraint signifies ambiguity, 
-                           multiple constraints on the same term signifies multiple constraints *)
-   method new_tarr : (typ option * typ option * typ option) -> (typ*typ*typ) (* type of argument, body, abstraction *)
-   method new_tvar : unit -> typ
-end
-exception TypeError of int * string
+(* Types are all the properties that are provable at compile time *)
+and typ = 
+   | TProp of string * (typ list) (* P, P(x), P(x,y), ... *)
+   | TType of string * (typ list) (* T, T<x>, T<x,y>, ... *)
+   | TVar of string               (* 'a *)
+   | TForall of string * typ      (* forall 'a. 'a *)
+   | TExists of string * typ      (* exists 'a. 'a *)
+   | TArrow of typ * typ          (* A => B *)
+   | TAll of typ list             (* A & B & C *)
+   | TAny of typ list             (* A | B | C *)
+   | TNot of typ                  (* ~A *)
 
 
 (* Compiler Options *)
 let option_target = ref "sml"
-let option_test = ref false
 let option_out = ref "a.out"
-let option_typesystem : type_system option ref = ref None
 
 (* For the convenience *)
 let con s t = Con (unique_int(), s, t)
 let var s = Var(unique_int(), s)
 let app l r = App (unique_int(), l, r)
 let abs p b = Abs (unique_int(), p, b)
-let tarr (os: typ option *  typ option * typ option): (typ*typ*typ) = (get_option (!option_typesystem))#new_tarr os
-let tvar (): typ = (get_option (!option_typesystem))#new_tvar ()
-let quantify (t: typ): typ = (
-    let tvar_pattern = regexp "['][a-zA-Z0-9]+" in
-    let open_types = ref [] in
-    let si = ref 0 in
-    (try while true do
-        si := (Str.search_forward tvar_pattern t !si)+1;
-        open_types := (Str.matched_string t) :: !open_types
-    done with Not_found -> ());
-    let quantified_t = ref t in
-    (List.iter (fun s ->
-        let closed_test = Str.regexp ("forall "^s^"[.]") in
-        if not (Str.string_match closed_test (!quantified_t) 0) then
-        quantified_t := "(forall " ^ s ^ ". " ^ (!quantified_t) ^ ")"
-    ) !open_types);
-    !quantified_t
-)
+
+
+let tvar() = TVar ("_"^(unique_string()))
+let tarr p b tt = tvar(),tvar(),tvar()
+
+
+let rec pp_type: typ -> string = function
+   | TProp(p,ps) -> p^"("^(string_join "," (List.map pp_type ps))^")"
+   | TType(p,ps) -> p^"<"^(string_join "," (List.map pp_type ps))^">"
+   | TVar(v) -> v
+   | TForall(x,t) -> "forall "^x^(pp_type t)
+   | TExists(x,t) -> "exists "^x^(pp_type t)
+   | TArrow(a,b) -> "("^(pp_type a)^" -> "^(pp_type b)^")"
+   | TAll(ts) -> "("^(string_join " & " (List.map pp_type ts))^")"
+   | TAny(ts) -> "("^(string_join " | " (List.map pp_type ts))^")"
+   | TNot t -> "~"^(pp_type t)
+let rec pp_term: term -> string = function
+   | Con (_,s,tt) -> "(\""^ s ^"\": "^ (pp_type tt) ^"\")"
+   | Var (_,s) -> s
+   | Abs (_,p,t) -> "\\" ^ p ^ ". " ^ (pp_term t)
+   | App (_,t1,t2) -> "(" ^ (pp_term t1) ^ " " ^ (pp_term t2) ^ ")" 
+
 
 let term_n = function
    | Con (n,_,_) -> n
@@ -82,9 +82,10 @@ let term_n = function
    | Abs (n,_,_) -> n
    | App (n,_,_) -> n
 
+
 let t_typ : (int,typ) hash_table = new hashtable
 let ascript t tt = t_typ#set (term_n t) tt
-let descript t = let tn = term_n t in if not(t_typ#has tn) then t_typ#set tn ((get_option (!option_typesystem))#new_tvar()); t_typ#get tn
+let descript t = let tn = term_n t in if not(t_typ#has tn) then t_typ#set tn (tvar()); t_typ#get tn
 
 let rec substitute_in_term (k: string) (v: term) = function
    | Con(n,c,tt) -> Con(n,c,tt)
@@ -96,14 +97,9 @@ let is_macro_body = function
    | App(_,(Var(_,"@")),_) -> true
    | _ -> false
 
-let rec pp_term: term -> string = function
-   | Con (_,s,tt) -> "(\""^ s ^"\": "^ tt ^"\")"
-   | Var (_,s) -> s
-   | Abs (_,p,t) -> "\\" ^ p ^ ". " ^ (pp_term t)
-   | App (_,t1,t2) -> "(" ^ (pp_term t1) ^ " " ^ (pp_term t2) ^ ")" 
 let pp_namespace_item: namespace_item -> string = function
    | NS_import link -> ""
-   | NS_type tt -> tt
+   | NS_type tt -> pp_type tt
    | NS_bind (bind,t) -> bind^" = "^(pp_term t)
    | NS_expr t -> pp_term t
 let pp_namespace: namespace -> string = function 
@@ -112,4 +108,5 @@ let pp_namespace: namespace -> string = function
 let uniop op a = app (var op) a
 let binop op a b = app (app (var op) a) b
 let triop op a b c = app (app (app (var op) a) b ) c
+
 let pattern pbs = (var "#TODO pattern")

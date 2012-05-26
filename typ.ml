@@ -98,10 +98,10 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): (((int*(t
     )
     | Abs(n,p,b) -> (
       let ns = ns#shadow() in
-      let pt,bt,tt = (get_option !option_typesystem)#new_tarr(None,None,
-                      (if List.mem_assoc n !a then Some(List.nth (List.assoc n !a) 0) else None)) in
+      let pt,bt,tt = tarr None None
+                     (if List.mem_assoc n !a then Some(List.nth (List.assoc n !a) 0) else None) in
       ns#set p pt; extract_term_system ns b;
-      if not (List.mem_assoc n !a) then a := (n,[tt]) :: !a
+     if not(List.mem_assoc n !a) then a := (n,[tt]) :: !a
     )
   ) in 
   List.iter (function
@@ -113,7 +113,7 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): (((int*(t
 
 
 (* STEP 4. typesystem#check : (annotations,constraints) -> annotations *)
-(* external *)
+let typecheck a c = []
 
 
 (* STEP 5. fix_namespace : annotated_namespace -> namespace *)
@@ -134,11 +134,11 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
            try ((globals#get v), v) with Not_found ->
            (print_endline("Missing variable "^v^" when searching for var:type in context"); exit 1)
         ) vs in
-        let nt = try (quantify (List.assoc n a)) with Not_found -> 
+        let nt = try (List.assoc n a) with Not_found -> 
         (print_endline("Missing term "^(string_of_int n)^" when searching for term:type in context"); exit 1) in
         let s' = try List.assoc nt tvs with Not_found -> 
-        (List.iter (fun (t,v) -> print_endline ("Var "^v^" has type "^t)) tvs);
-        (print_endline("Missing type "^nt^" when searching for var:type in context"); exit 1) in
+        (List.iter (fun (t,v) -> print_endline ("Var "^v^" has type "^(pp_type t))) tvs);
+        (print_endline("Missing type "^(pp_type nt)^" when searching for var:type in context"); exit 1) in
         Var(n,s')
      )
    | Abs(n,p,b) -> Abs(n,p,fix_term b)
@@ -167,46 +167,15 @@ let annotate (rb: resource_bundle): annotated_namespace = (
       (* 2, extract types of all terms -- ambiguous terms just have more than one type *)
       (* 3, extract constraints on all terms *)
    print_endline "Print global namespace:";
-   List.iter (fun (k,v) -> print_endline(k^" : "^v)) (globals#items());
+   List.iter (fun (k,v) -> print_endline(k^" : "^(pp_type v))) (globals#items());
    let (annotations,constraints) = extract_system globals ns in
    print_endline "Print annotations:";
-   List.iter (fun (n,ts) -> print_endline ("#"^(string_of_int n)^" : "^(string_join " | " ts))) annotations;
+   List.iter (fun (n,ts) -> print_endline ("#"^(string_of_int n)^" : "^(string_join " | " (List.map pp_type ts)))) annotations;
    print_endline "Print constraints:";
    List.iter (fun (p,b,t) -> print_endline ("'"^(string_of_int p)^" '"^(string_of_int b)^" => '"^(string_of_int t))) constraints;
-   let annotations = (get_option !Ast.option_typesystem)#check annotations constraints in
+   let annotations = typecheck annotations constraints in
    let ns = fix_namespace (ns, annotations) in
    (ns,annotations)
 )
 
 
-let test_cases : (type_system * ((int*(typ list)) list) * ((int*int*int) list)) list = [
-   (new Ts_simple.checker, [(1,["'a -> 'a"]);(2,["int"])], [(1,2,3)]);
-   (new Ts_simple.checker, [(1,["'a -> 'a -> 'a"]);(2,["int"]);(3,["int"])], [(1,2,4);(4,3,5)]);
-   (new Ts_poly.checker, [(1,["'a -> 'a"]);(2,["int"])], [(1,2,3)]);
-   (new Ts_poly.checker, [(1,["'a -> 'a -> 'a"]);(2,["int"]);(3,["int"])], [(1,2,4);(4,3,5)]);
-   (new Ts_poly.checker, [(1,["int -> int"; "unit -> unit"]);(2,["int"])], [(1,2,3)]);
-   (new Ts_luck.checker, [(1,["'a -> 'a"]);(2,["int"])], [(1,2,3)]);
-   (new Ts_luck.checker, [(1,["'a -> 'a -> 'a"]);(2,["int"]);(3,["int"])], [(1,2,4);(4,3,5)]);
-   (new Ts_luck.checker, [(1,["int -> int"; "unit -> unit"]);(2,["int"])], [(1,2,3)]);
-   (new Ts_luck.checker, [(1,["int -> (int,int)"; "unit -> (unit,unit)"]);(2,["int"])], [(1,2,3)]);
-   (new Ts_luck.checker, [(1,["(unit|int) -> unit"]);(2,["int"])], [(1,2,3)]);
-   (new Ts_luck.checker, [(1,["forall 'a. 'a -> 'a"]);(2,["int"])], [(1,2,3)]);
-   (new Ts_luck.checker, [(1,["int -> (MyType,int)"]);(2,["int"])], [(1,2,3)]);
-   (new Ts_luck.checker, [(1,["('a,'b) -> unit"]);(2,["(int,unit)"])], [(1,2,3)]);
-   (new Ts_luck.checker, [(1,["forall 'a. list['a] -> 'a"]);(2,["list[int]"])], [(1,2,3)]);
-(*
-   (new Ts_luck.checker, [(1,["forall 'a. (recursive 'b. Nil|(Cons,'a,'b)) -> 'a"]);(2,["recursive 'a. Nil|(Cons,int,'a)"])], [(1,2,3)])
-*)
-]
-
-let test () = (
-   let i = ref 0 in
-   List.iter (fun (checker, objects, arrows) ->
-      incr i;
-      let solution = checker#check objects arrows in
-      print_endline ("Solution to equation set #"^(string_of_int !i)^":");
-      List.iter (fun (i,tt) ->
-         print_endline ("t#"^(string_of_int i)^" : "^tt)
-      ) solution; print_endline ""; ()
-   ) test_cases
-)

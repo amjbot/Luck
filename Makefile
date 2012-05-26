@@ -6,7 +6,7 @@ again: clean all
 all:
 	cd pcl; make all
 	ocamlc -w -8 -o luck -I pcl pcl/pcl.cma str.cma unix.cma misc.ml ast.ml log.ml prs.ml \
-        ts_simple.ml ts_poly.ml ts_f.ml ts_luck.ml typ.ml gen.ml prj.ml ntr.ml
+        typ.ml gen.ml prj.ml ntr.ml
 
 clean:
 	rm -f luck *.mli *.o *.cmo *.cmx *.cmi a.out

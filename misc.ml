@@ -74,23 +74,7 @@ class ['a, 'b] hashtable : ['a, 'b] hash_table =
      method keys () = List.map fst (self#items ())
      method values () = List.map snd (self#items ())
      method shadow () = 
-     let new_table = new hashtable in
-     List.iter (fun (k,v) -> new_table#set k v) (self#items());
-     new_table
-     (* new shadow_table (self:> ('a,'b) hash_table) *)
+        let new_table = new hashtable in
+        List.iter (fun (k,v) -> new_table#set k v) (self#items());
+        new_table
    end
-(*
-and ['a, 'b] shadow_table parent : ['a, 'b] hash_table =
-   object (self)
-     val table = Hashtbl.create 1024
-     val hide = Hashtbl.create 1024
-     method has key = (Hashtbl.mem table key) || parent#has key
-     method get key = try Hashtbl.find table key with Not_found -> parent#get key
-     method set key = Hashtbl.replace table key
-     method clear () = Hashtbl.clear table; parent#clear()
-     method items () = (Hashtbl.fold (fun k v c -> (k,v) :: c) table []) @ (parent#items ())
-     method keys () = (List.map fst (self#items ())) @ (parent#keys ())
-     method values () = (List.map snd (self#items ())) @ (parent#values ()) 
-     method shadow () = new shadow_table (self:> ('a,'b) hash_table)
-   end;;
-*)

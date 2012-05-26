@@ -54,15 +54,24 @@ let pCHAR st = (
 ) st;;
 let pSTRING st = stringLiteral st
 let identifier st = (identifier <|> (reservedOp "$" >> stringLiteral)) st
-let pTYPE st = (get_option (!Ast.option_typesystem))#parse st
+let pTYPE st = (
+   (symbolChar '\'' >> identifier >>= fun i -> return (TVar i))
+(*    | TProp of string * (typ list) (* P, P(x), P(x,y), ... *)
+   | TForall of string * typ
+   | TExists of string * typ
+   | TImplies of typ * typ
+   | TAll of typ list
+   | TAny of typ list
+*)
+) st
 
 let rec pCONST st = (
-   (reserved "true" >> return (con "true" "bool")) <|>
-   (reserved "false" >> return (con "false" "bool")) <|>
-   (pINT >>= fun c -> return (con c "int")) <|>
-   (pFLOAT >>= fun c -> return (con c "float")) <|>
-   (pCHAR >>= fun c -> return (con c "char")) <|>
-   (pSTRING >>= fun c -> return (con c "string"))
+   (reserved "true" >> return (con "true" (TProp ("bool",[])) )) <|>
+   (reserved "false" >> return (con "false" (TProp ("bool",[])) )) <|>
+   (pINT >>= fun c -> return (con c (TProp ("int",[])) )) <|>
+   (pFLOAT >>= fun c -> return (con c (TProp ("float",[])) )) <|>
+   (pCHAR >>= fun c -> return (con c (TProp ("char",[])) )) <|>
+   (pSTRING >>= fun c -> return (con c (TProp ("string",[])) ))
 ) st
 and pATOM st = (
    pCONST <|>
@@ -75,7 +84,7 @@ and pATOM st = (
    (reserved "new" >> identifier >>= fun c -> return (var ("new "^c))) <|>
    (identifier >>= fun c -> return (var c)) <|>
    (reservedOp "..." >>= fun _ -> return (app (var "throw") (var "NotImplemented"))) <|>
-   (reservedOp "@" >> many pEXPR >>= fun sexp -> return (app (var "@") (List.fold_left app (con "" "string") sexp)) )
+   (reservedOp "@" >> many pEXPR >>= fun sexp -> return (app (var "@") (List.fold_left app (con "" (TProp ("string",[])) ) sexp)) )
 ) st
 
 (*
@@ -216,23 +225,21 @@ and pFUNCTIONPARAMIDENT st = (
    ((reserved "_") >> (return "_"))
 ) st
 and pOPTIONALTYPE st = (
-   (reservedOp ":" >> ((pTYPE >>= fun t -> return (Some t)) <?> "ascribed type")) <|>
-   (return None)
+   (reservedOp ":" >> ((pTYPE >>= fun t -> return t) <?> "ascribed type")) <|>
+   (return (tvar()))
 ) st
 and pFUNCTIONPARAM st = (
    parens (pFUNCTIONPARAMIDENT >>= fun p -> pOPTIONALTYPE >>= fun tt -> return ((fun b -> abs p b), tt)) <|>
-   (pFUNCTIONPARAMIDENT >>= fun p -> return ((fun b -> abs p b), None))
+   (pFUNCTIONPARAMIDENT >>= fun p -> return ((fun b -> abs p b), (tvar())))
 ) st
 and pFUNCTION_BODY st = (
    (many1 pFUNCTIONPARAM) >>= fun ps ->
    pOPTIONALTYPE >>= fun rt -> (reservedOp "=") >>
    pEXPR >>= fun b -> return (
       let (f,ft) = List.fold_right (
-         fun (p,pt) (b,rt) -> let (_,_,ft) = tarr (pt, rt, None) in
-         ((p b),Some ft)
-      ) (ps: ((term -> term)*(typ option)) list)
-        ( (b:term), (rt:typ option) ) in
-      let ft = quantify (get_option ft) in
+         fun (p,pt) (b,rt) -> ((p b),TArrow(pt,rt))
+      ) (ps: ((term -> term)*typ) list)
+        ( (b:term), (rt:typ) ) in
       ascript f ft; f
    )
 ) st;;
