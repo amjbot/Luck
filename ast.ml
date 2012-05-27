@@ -34,7 +34,6 @@ and term =
 (* Types are all the properties that are provable at compile time *)
 and typ = 
    | TProp of string * (typ list) (* P, P(x), P(x,y), ... *)
-   | TType of string * (typ list) (* T, T<x>, T<x,y>, ... *)
    | TVar of string               (* 'a *)
    | TForall of string * typ      (* forall 'a. 'a *)
    | TExists of string * typ      (* exists 'a. 'a *)
@@ -56,12 +55,16 @@ let abs p b = Abs (unique_int(), p, b)
 
 
 let tvar() = TVar ("_"^(unique_string()))
-let tarr p b tt = tvar(),tvar(),tvar()
+let tarr p b tt = 
+    let a = match p with Some t -> t | None -> tvar() 
+    and b = match b with Some t -> t | None -> tvar()
+    in match tt with
+    | Some(TArrow(a,b) as c) -> a,b,c
+    | _ -> a,b,TArrow(a,b)
 
 
 let rec pp_type: typ -> string = function
    | TProp(p,ps) -> p^"("^(string_join "," (List.map pp_type ps))^")"
-   | TType(p,ps) -> p^"<"^(string_join "," (List.map pp_type ps))^">"
    | TVar(v) -> v
    | TForall(x,t) -> "forall "^x^(pp_type t)
    | TExists(x,t) -> "exists "^x^(pp_type t)

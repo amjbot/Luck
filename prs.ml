@@ -54,15 +54,20 @@ let pCHAR st = (
 ) st;;
 let pSTRING st = stringLiteral st
 let identifier st = (identifier <|> (reservedOp "$" >> stringLiteral)) st
-let pTYPE st = (
-   (symbolChar '\'' >> identifier >>= fun i -> return (TVar i))
-(*    | TProp of string * (typ list) (* P, P(x), P(x,y), ... *)
-   | TForall of string * typ
-   | TExists of string * typ
-   | TImplies of typ * typ
-   | TAll of typ list
-   | TAny of typ list
-*)
+let rec pTYPE st = (
+   (reserved "forall" >> symbolChar '\'' >> identifier >>= fun p -> 
+    reservedOp "." >> pTYPE >>= fun b -> return (TForall(p,b))) <|>
+   (reserved "exists" >> symbolChar '\'' >> identifier >>= fun p -> 
+    reservedOp "." >> pTYPE >>= fun b -> return (TExists(p,b))) <|>
+   (pTYPE_ATOM >>= fun p -> reservedOp "->" >> pTYPE >>= fun b -> return (TArrow(p,b))) <|>
+   (pTYPE_ATOM >>= fun l -> reservedOp "&" >> pTYPE >>= fun r -> return (TAll[l;r])) <|>
+   (pTYPE_ATOM >>= fun l -> reservedOp "|" >> pTYPE >>= fun r -> return (TAny[l;r])) <|>
+   pTYPE_ATOM
+) st and pTYPE_ATOM st = (
+   (symbolChar '\'' >> identifier >>= fun v -> return (TVar v)) <|>
+   (reservedOp "~" >> pTYPE_ATOM >>= fun t -> return (TNot t)) <|>
+   (identifier >>= fun p -> ((parens(commaSep pTYPE)) <|> (return [])) 
+               >>= fun ts -> return (TProp(p,ts)))
 ) st
 
 let rec pCONST st = (
