@@ -31,7 +31,7 @@ and term =
    | Var of int * string                      (* variable reference *)
    | Abs of int * string * term               (* lambda abstraction *)
    | App of int * term * term                 (* function application *)
-(* Types are all the properties that are provable at compile time *)
+(* Types are properties that are provable at compile time *)
 and typ = 
    | TProp of string * (typ list) (* P, P(x), P(x,y), ... *)
    | TVar of string               (* 'a *)
@@ -78,6 +78,8 @@ let rec pp_term: term -> string = function
    | Abs (_,p,t) -> "\\" ^ p ^ ". " ^ (pp_term t)
    | App (_,t1,t2) -> "(" ^ (pp_term t1) ^ " " ^ (pp_term t2) ^ ")" 
 
+
+let normalize_type (t: typ): typ = t
 
 let term_n = function
    | Con (n,_,_) -> n
