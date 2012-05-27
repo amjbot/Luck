@@ -33,6 +33,7 @@ and term =
    | App of int * term * term                 (* function application *)
 (* Types are properties that are provable at compile time *)
 and typ = 
+   | TType of string * (typ list) (* T, T<x>, P<x,y>, ... *)
    | TProp of string * (typ list) (* P, P(x), P(x,y), ... *)
    | TVar of string               (* 'a *)
    | TForall of string * typ      (* forall 'a. 'a *)
@@ -64,6 +65,7 @@ let tarr p b tt =
 
 
 let rec pp_type: typ -> string = function
+   | TType(p,ps) -> p^(if List.length ps=0 then "" else "<"^(string_join "," (List.map pp_type ps))^">")
    | TProp(p,ps) -> p^(if List.length ps=0 then "" else "("^(string_join "," (List.map pp_type ps))^")")
    | TVar(v) -> "'"^v
    | TForall(x,t) -> "forall "^x^(pp_type t)

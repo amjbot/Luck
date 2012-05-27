@@ -66,8 +66,11 @@ let rec pTYPE st = (
 ) st and pTYPE_ATOM st = (
    (symbolChar '\'' >> identifier >>= fun v -> return (TVar v)) <|>
    (reservedOp "~" >> pTYPE_ATOM >>= fun t -> return (TNot t)) <|>
-   (identifier >>= fun p -> ((parens(commaSep pTYPE)) <|> (return [])) 
-               >>= fun ts -> return (TProp(p,ts)))
+   (identifier >>= fun p -> 
+       ((reservedOp "<" >> (commaSep pTYPE) >>= fun ts -> reservedOp ">" >> return ts) <|> (return [])) 
+       >>= fun ts -> return (TType(p,ts))) <|>
+   (reservedOp "+" >> identifier >>= fun p -> ((parens (commaSep pTYPE)) <|> (return [])) 
+       >>= fun ts -> return (TProp(p,ts)))
 ) st
 
 let rec pCONST st = (
