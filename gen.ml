@@ -68,7 +68,7 @@ class sml_language : target_language = object (this)
    method translate ((ns,a):annotated_namespace): target_executable = (
       print_endline ("|annotations| = "^(string_of_int (List.length a)));
       List.iter (
-         fun (n,t) -> print_endline ((string_of_int n)^" : "^(pp_type t))
+         fun (t,tt) -> print_endline ((string_of_int (term_n t))^" : "^(pp_type tt))
       ) a;
       let type_binds = List.flatten (List.map (function
          (* how should this work? *)

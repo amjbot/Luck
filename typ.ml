@@ -74,9 +74,8 @@ let extract_global_types (ns: namespace): (string,typ) hash_table = (
 
 
 (* STEP 3. extract_system : globals -> namespace -> (annotations,constraints) *)
-let extract_system (globals: (string,typ) hash_table) (ns: namespace): (((int*typ) list) * ((int*int*int) list)) = (
-  let a : (int*typ) list ref = ref [] in
-  let c : (int*int*int) list ref= ref [] in
+let extract_system (globals: (string,typ) hash_table) (ns: namespace): ((term*typ) list) = (
+  let a : (term*typ) list ref = ref [] in
   let rec extract_term_macro (ns: (string,typ) hash_table) (t: term): unit = (
      match t with
      | App(n,l,(Con(_,_,_))) -> extract_term_macro ns l
@@ -87,34 +86,35 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): (((int*ty
   and extract_term_system (ns: (string,typ) hash_table) (t: term): unit = (
     (* todo, extract constraints from everything except macros *)
     match t with
-    | Con(n,s,tt) -> a := (n,tt) :: !a
+    | Con(n,s,tt) -> a := (t,tt) :: !a
     | Var(n,s) -> let tt = TAny (List.map 
        (fun s -> if ns#has s then ns#get s else (print_endline ("Undefined variable: "^s); assert false)) 
-       (string_split "[\n]" s)) in (a := ((n,tt) :: !a))
+       (string_split "[\n]" s)) in (a := ((t,tt) :: !a))
     | App(n,l,r) -> (
       match l with
       | Var(_,"@") -> extract_term_macro ns r
-      | _ -> (c := ((term_n l),(term_n r),n) :: !c; extract_term_system ns l; extract_term_system ns r)
+      | _ -> (extract_term_system ns l; extract_term_system ns r);
+      (a := (t,(tvar())) :: !a)
     )
     | Abs(n,p,b) -> (
       let ns = ns#shadow() in
       let pt,bt,tt = tarr None None
-                     (if List.mem_assoc n !a then Some(List.assoc n !a) else None) in
+                     (if List.mem_assoc t !a then Some(List.assoc t !a) else None) in
       ns#set p pt; extract_term_system ns b;
-     if not(List.mem_assoc n !a) then a := (n,tt) :: !a
+     if not(List.mem_assoc t !a) then a := (t,tt) :: !a
     )
   ) in 
   List.iter (function
-   | NS_bind(s,t) -> a := (term_n t,descript t) :: !a; extract_term_system globals t
+   | NS_bind(s,t) -> a := (t,descript t) :: !a; extract_term_system globals t
    | NS_expr t -> extract_term_system globals t
    | _ -> ()
-  ) ns; (!a,!c)
+  ) ns; !a
 )
 
 
-(* STEP 4. typesystem#check : (annotations,constraints) -> annotations *)
-let typecheck a c = (
-    let a = List.map (fun (n,t) -> (n,normalize_type t)) a in
+(* STEP 4. typesystem#check : annotations -> annotations *)
+let typecheck (a: (term*typ) list): ((term*typ) list) = (
+    let a = List.map (fun (t,tt) -> (t,normalize_type tt)) a in
     (* normalize types, infer propositions, check consistency *)
     let facts = ref a in
     let stable = ref false in
@@ -133,25 +133,24 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
    let globals = new hashtable in
    List.iter(function
      | NS_bind(k,t) -> (
-       try globals#set k (List.assoc (term_n t) a)
+       try globals#set k (List.assoc t a)
        with Not_found -> (print_endline ("Could not find annotation for global term: "^k); exit 1)
      )| _ -> ()
    ) ns;
    (* TODO: remove ambiguities in referencing polymorphic global functions *)
    let rec fix_term : term -> term = function
-   | Var(n,s) -> 
+   | Var(n,s) as v -> 
      let vs = string_split "[\n]" s in
      if List.length vs=1 then Var(n,s) else (
-        let tvs = List.map (fun v -> 
-           try ((globals#get v), v) with Not_found ->
+        let vt = List.assoc v a in
+        let vts = List.map (fun v -> 
+           try (v, (globals#get v)) with Not_found ->
            (print_endline("Missing variable "^v^" when searching for var:type in context"); exit 1)
         ) vs in
-        let nt = try (List.assoc n a) with Not_found -> 
-        (print_endline("Missing term "^(string_of_int n)^" when searching for term:type in context"); exit 1) in
-        let s' = try List.assoc nt tvs with Not_found -> 
-        (List.iter (fun (t,v) -> print_endline ("Var "^v^" has type "^(pp_type t))) tvs);
-        (print_endline("Missing type "^(pp_type nt)^" when searching for var:type in context"); exit 1) in
-        Var(n,s')
+        let vts = List.filter (fun (v,t) -> vt <: t) vts in
+        if List.length vts < 1 then fatal_error("Over-constrained variable: "^s)
+        else if List.length vts > 1 then fatal_error("Under-constrained variable: "^s)
+        else Var(n,fst(List.nth vts 0))
      )
    | Abs(n,p,b) -> Abs(n,p,fix_term b)
    | App(n,l,r) -> App(n,fix_term l,fix_term r)
@@ -180,12 +179,10 @@ let annotate (rb: resource_bundle): annotated_namespace = (
       (* 3, extract constraints on all terms *)
    print_endline "Print global namespace:";
    List.iter (fun (k,v) -> print_endline(k^" : "^(pp_type v))) (globals#items());
-   let (annotations,constraints) = extract_system globals ns in
+   let annotations = extract_system globals ns in
    print_endline "Print annotations:";
-   List.iter (fun (n,t) -> print_endline ("#"^(string_of_int n)^" : "^(pp_type t))) annotations;
-   print_endline "Print constraints:";
-   List.iter (fun (p,b,t) -> print_endline ("'"^(string_of_int p)^" '"^(string_of_int b)^" => '"^(string_of_int t))) constraints;
-   let annotations = typecheck annotations constraints in
+   List.iter (fun (t,tt) -> print_endline ("#"^(string_of_int (term_n t))^" : "^(pp_type tt))) annotations;
+   let annotations = typecheck annotations in
    let ns = fix_namespace (ns, annotations) in
    (ns,annotations)
 )

@@ -4,7 +4,7 @@ open Str
 
 type file_bundle               = filename list
 and  resource_bundle           = resource list
-and  annotated_namespace       = namespace * ((int * typ) list) 
+and  annotated_namespace       = namespace * ((term * typ) list) 
 and  target_executable         = filename list
 
 (* Namespaces are one honking great idea -- let's do more of those! *)
@@ -82,6 +82,7 @@ let rec pp_term: term -> string = function
 
 
 let normalize_type (t: typ): typ = t
+let (<:) a b = (a=b)
 
 let term_n = function
    | Con (n,_,_) -> n
