@@ -111,6 +111,8 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): ((term*ty
   ) ns; !a
 )
 
+let infer2 (iv,it) (jv,jt) = []
+let infer3 (iv,it) (jv,jt) (kv,kt) = []
 
 (* STEP 4. typesystem#check : annotations -> annotations *)
 let typecheck (a: (term*typ) list): ((term*typ) list) = (
@@ -121,8 +123,21 @@ let typecheck (a: (term*typ) list): ((term*typ) list) = (
     while not !stable do 
         let prev_facts = !facts in
         (* update facts *)
-        (* check for consistency *)
+        List.iter (fun i ->
+           List.iter (fun j -> if i<>j then(
+              facts := (infer2 i j) @ !facts;
+              List.iter (fun k -> if i<>j && j<>k then(
+                  facts := (infer3 i j k) @ !facts
+              )) prev_facts
+           )) prev_facts
+        ) prev_facts;
         if (List.length !facts) = (List.length prev_facts) then stable := true
+        else for fi=List.length prev_facts to (List.length !facts)-1 do
+            let t,tt = List.nth !facts fi in
+            print_endline("Proved new property, #"^(string_of_int(term_n t))^" : "^(pp_type tt))  
+        done;
+        (* check for consistency *)
+        ()
     done;
     !facts
 )

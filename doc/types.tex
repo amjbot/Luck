@@ -1,0 +1,41 @@
+\documentclass[final,letterpaper,twoside,12pt]{article}
+\usepackage{bussproofs}
+\date{\today}
+\title{Luck Typesystem}
+\begin{document}
+
+\begin{prooftree}
+\AxiomC{$x:A$}
+\AxiomC{$x:\lnot A$}
+\LeftLabel{Contradiction:}
+\BinaryInfC{$ \bot $}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$x:A \land \mathellipsis$}
+\LeftLabel{Isolate Part:}
+\UnaryInfC{$x:A$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$f:A \to B$}
+\AxiomC{$x:A$}
+\LeftLabel{Apply Simple:}
+\BinaryInfC{$f(x):B$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$f:A \to B \lor \mathellipsis$}
+\AxiomC{$x:A$}
+\LeftLabel{Apply Part:}
+\BinaryInfC{$f(x):B$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$\forall `a:`a \to `b$}
+\AxiomC{$x:A$}
+\LeftLabel{Instantiation:}
+\BinaryInfC{$f(x):`b[`a \mapsto A]$}
+\end{prooftree}
+
+\end{document}
