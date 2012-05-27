@@ -64,8 +64,8 @@ let tarr p b tt =
 
 
 let rec pp_type: typ -> string = function
-   | TProp(p,ps) -> p^"("^(string_join "," (List.map pp_type ps))^")"
-   | TVar(v) -> v
+   | TProp(p,ps) -> p^(if List.length ps=0 then "" else "("^(string_join "," (List.map pp_type ps))^")")
+   | TVar(v) -> "'"^v
    | TForall(x,t) -> "forall "^x^(pp_type t)
    | TExists(x,t) -> "exists "^x^(pp_type t)
    | TArrow(a,b) -> "("^(pp_type a)^" -> "^(pp_type b)^")"
