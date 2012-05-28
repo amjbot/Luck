@@ -19,34 +19,34 @@ class sml_language : target_language = object (this)
    method private translate_ident (ident: string): string = hash_ident ident
    method private translate_simple_macro (m: term) = (
       let rec flatten_macro_atom = function
-      | Con(_,c,tt) as t -> (match tt with
+      | Con(c,tt) as t -> (match tt with
          | TProp("string",[]) -> c
          | _ -> this#translate_term t
       )| t -> this#translate_term t in
       let rec flatten_macro_body = function
-      | App(_,l,r) -> (flatten_macro_body l)^(flatten_macro_atom r) 
-      | Con(_,c,tt) as t -> (match tt with
+      | App(l,r) -> (flatten_macro_body l)^(flatten_macro_atom r) 
+      | Con(c,tt) as t -> (match tt with
          | TProp("string",[]) -> c
          | _ -> assert false
       ) in
       match m with
-      | App(_,(Var (_,"@")),r) -> flatten_macro_body r
+      | App((Var ("@")),r) -> flatten_macro_body r
       | _ -> assert false
    )
    method private translate_macro (m: term) (xs: term list) = (
       (* Wow, this totally subsumes lisp macros. Hah! *)
       match m with
-      | Abs(n,p,b) -> (match xs with 
+      | Abs(p,b) -> (match xs with 
          | [] -> assert false 
          | x::xs -> this#translate_macro (substitute_in_term p x b) xs
-      ) | App(n,(Var (_,"@")),r) -> assert ((List.length xs)=0); (this#translate_simple_macro m)
-      | App(n,l,r) -> this#translate_macro l (r::xs)
+      ) | App((Var ("@")),r) -> assert ((List.length xs)=0); (this#translate_simple_macro m)
+      | App(l,r) -> this#translate_macro l (r::xs)
       | _ -> assert false
    )
 
    method private translate_term (t: term): string = (
       match t with
-      | Con(n,v,tt) -> (match tt with 
+      | Con(v,tt) -> (match tt with 
          | TProp("int",[]) -> v
          | TProp("string",[]) -> 
            let v = Str.global_replace (Str.regexp "\n") "\\n" v in
@@ -59,10 +59,10 @@ class sml_language : target_language = object (this)
          *)
          | _ -> print_endline ("Unknown constant type: "^(pp_type tt)); assert false
       )
-      | Var(n,k) -> this#translate_ident k
-      | Abs(n,p,b) -> "(fn "^(this#translate_ident p)^" => "^(this#translate_term b)^")"
-      | App(n,(Var(_,"@")),_) as t-> this#translate_simple_macro t
-      | App(n,f,x) -> (* if is_applied_macro f then this#translate_macro f [x] else *)
+      | Var(k) -> this#translate_ident k
+      | Abs(p,b) -> "(fn "^(this#translate_ident p)^" => "^(this#translate_term b)^")"
+      | App((Var("@")),_) as t-> this#translate_simple_macro t
+      | App(f,x) -> (* if is_applied_macro f then this#translate_macro f [x] else *)
         "("^(this#translate_term f)^" "^(this#translate_term x)^")"
    )
    method translate ((ns,a):annotated_namespace): target_executable = (

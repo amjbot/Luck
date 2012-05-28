@@ -22,7 +22,6 @@ open Log
 
 
 (* STEP 1. flatten_namespace : resource_bundle -> namespace *)
-(* hide extract_globals, it is a helper method and damn ugly at that *)
 let flatten_namespace (nss: resource_bundle): namespace = (
    (* extract mapping from relatively global variable names to absolute global variable names *)
    let to_absolute (uri: string) (var: string) (n: int) = uri^"$"^var^"#"^(string_of_int n) in
@@ -30,25 +29,28 @@ let flatten_namespace (nss: resource_bundle): namespace = (
       let table = new hashtable in
       table#set "@" "@";
       List.iter (fun (uri,ns,prefix,symbols) -> List.iter (function
-         | NS_bind (k,t) ->
-         let relative_name = if prefix="" then k else (prefix^"."^k) in
-         let absolute_name = to_absolute uri k (term_n t) in
-         table#set relative_name (if table#has relative_name then (table#get relative_name)^"\n"^absolute_name else absolute_name)
-         | _ -> ()
+         | NS_bind (k,t) -> (
+            let relative_name = if prefix="" then k else (prefix^"."^k) in
+            let absolute_name = to_absolute uri k (term_n t) in
+            if table#has relative_name
+            then table#set relative_name ((table#get relative_name)^"\n"^absolute_name)
+            else table#set relative_name absolute_name 
+         ) | _ -> ()
       ) ns) nss; table
    ) in
    let rec normalize_term_names : string -> (string,string) hash_table -> term -> term = fun uri ns t -> (
       match t with
-      | Con(_,_,_) -> t
-      | Var(n,s) -> if ns#has s then Var(n,ns#get s) else (print_endline ("Undefined variable name: "^s); assert false)
-      | Abs(n,p,b) ->
-        let pn = to_absolute uri p n and ns = ns#shadow() in ns#set p pn;
-        Abs(n,pn,normalize_term_names uri ns b)
-      | App(n,f,x) -> App(n,normalize_term_names uri ns f,normalize_term_names uri ns x)
+      | Con(_,_) -> t
+      | Var(s) -> if ns#has s then Var(ns#get s) else fatal_error("Undefined variable name: "^s)
+      | Abs(p,b) ->
+        let pn = to_absolute uri p (unique_int()) and ns = ns#shadow() in ns#set p pn;
+        Abs(pn,normalize_term_names uri ns b)
+      | App(f,x) -> App(normalize_term_names uri ns f,normalize_term_names uri ns x)
    ) in
    let flat_ns : namespace ref = ref [] in
    List.iter (fun (uri,ns,deps) ->
       let diff = map_relative_to_absolute_names ((uri,ns,"",["*"]) :: deps) in
+      List.iter (fun (k,v) -> print_endline(k^" = "^v)) (diff#items());
       flat_ns := List.map (function
          | NS_type tt -> assert false (* are type names relative to current namespace? *)
          | NS_bind (k,t) -> let k = to_absolute uri k (term_n t)
@@ -65,9 +67,9 @@ let extract_global_types (ns: namespace): (string,typ) hash_table = (
    let globals : (string,typ) hash_table = new hashtable in
    List.iter (function
       | NS_type tt -> assert false (* how to handle type definitions? just add another rule and syntax form? *)
-      | NS_bind (k,t) -> 
-        assert(not(globals#has k));
-        globals#set k (descript t)
+      | NS_bind (k,t) -> if globals#has k 
+        then globals#set k (TAny [descript t; globals#get k])
+        else globals#set k (descript t)
       | _ -> ()
    ) ns; globals
 )
@@ -78,25 +80,25 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): ((term*ty
   let a : (term*typ) list ref = ref [] in
   let rec extract_term_macro (ns: (string,typ) hash_table) (t: term): unit = (
      match t with
-     | App(n,l,(Con(_,_,_))) -> extract_term_macro ns l
-     | App(n,l,r) -> extract_term_macro ns l; extract_term_system ns r
-     | Abs(_,_,_) as v -> extract_term_system ns v
+     | App(l,(Con(_,_))) -> extract_term_macro ns l
+     | App(l,r) -> extract_term_macro ns l; extract_term_system ns r
+     | Abs(_,_) as v -> extract_term_system ns v
      | _ -> ()
   ) 
   and extract_term_system (ns: (string,typ) hash_table) (t: term): unit = (
     (* todo, extract constraints from everything except macros *)
     match t with
-    | Con(n,s,tt) -> a := (t,tt) :: !a
-    | Var(n,s) -> let tt = TAny (List.map 
-       (fun s -> if ns#has s then ns#get s else (print_endline ("Undefined variable: "^s); assert false)) 
+    | Con(s,tt) -> a := (t,tt) :: !a
+    | Var(s) -> let tt = TAny (List.map 
+       (fun s -> if ns#has s then ns#get s else fatal_error ("Undefined variable: "^s)) 
        (string_split "[\n]" s)) in (a := ((t,tt) :: !a))
-    | App(n,l,r) -> (
+    | App(l,r) -> (
       match l with
-      | Var(_,"@") -> extract_term_macro ns r
+      | Var("@") -> extract_term_macro ns r
       | _ -> (extract_term_system ns l; extract_term_system ns r);
       (a := (t,(tvar())) :: !a)
     )
-    | Abs(n,p,b) -> (
+    | Abs(p,b) -> (
       let ns = ns#shadow() in
       let pt,bt,tt = tarr None None
                      (if List.mem_assoc t !a then Some(List.assoc t !a) else None) in
@@ -111,8 +113,19 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): ((term*ty
   ) ns; !a
 )
 
-let infer2 (iv,it) (jv,jt) = []
-let infer3 (iv,it) (jv,jt) (kv,kt) = []
+(* Inference rules *)
+let contradiction (ix,it) (jx,jt) = 
+    if ix=jx && (match it,jt with (it,TNot jt) -> it=jt | _ -> false)
+    then fatal_error("Contradiction")
+    else []
+
+let isolate_part (ix,it) = 
+    match it with TAll ts -> List.map(fun t -> (ix,t)) ts | _ -> []
+
+let apply_simple (f,ft) (x,xt) (fx,fxt) =
+    match ft,fx with
+    | TArrow(pt,bt),(App(_,x')) -> if x=x' && xt <: pt then [(fx,bt)] else []
+    | _ -> []
 
 (* STEP 4. typesystem#check : annotations -> annotations *)
 let typecheck (a: (term*typ) list): ((term*typ) list) = (
@@ -124,10 +137,12 @@ let typecheck (a: (term*typ) list): ((term*typ) list) = (
         let prev_facts = !facts in
         (* update facts *)
         List.iter (fun i ->
+           facts := (isolate_part i) @ !facts;
            List.iter (fun j -> if i<>j then(
-              facts := (infer2 i j) @ !facts;
+              facts := (contradiction i j) @ !facts;
               List.iter (fun k -> if i<>j && j<>k then(
-                  facts := (infer3 i j k) @ !facts
+                  (* facts := (infer3 i j k) @ !facts *)
+                  ()
               )) prev_facts
            )) prev_facts
         ) prev_facts;
@@ -135,9 +150,7 @@ let typecheck (a: (term*typ) list): ((term*typ) list) = (
         else for fi=List.length prev_facts to (List.length !facts)-1 do
             let t,tt = List.nth !facts fi in
             print_endline("Proved new property, #"^(string_of_int(term_n t))^" : "^(pp_type tt))  
-        done;
-        (* check for consistency *)
-        ()
+        done
     done;
     !facts
 )
@@ -154,9 +167,9 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
    ) ns;
    (* TODO: remove ambiguities in referencing polymorphic global functions *)
    let rec fix_term : term -> term = function
-   | Var(n,s) as v -> 
+   | Var(s) as v -> 
      let vs = string_split "[\n]" s in
-     if List.length vs=1 then Var(n,s) else (
+     if List.length vs=1 then Var(s) else (
         let vt = List.assoc v a in
         let vts = List.map (fun v -> 
            try (v, (globals#get v)) with Not_found ->
@@ -165,11 +178,11 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
         let vts = List.filter (fun (v,t) -> vt <: t) vts in
         if List.length vts < 1 then fatal_error("Over-constrained variable: "^s)
         else if List.length vts > 1 then fatal_error("Under-constrained variable: "^s)
-        else Var(n,fst(List.nth vts 0))
+        else Var(fst(List.nth vts 0))
      )
-   | Abs(n,p,b) -> Abs(n,p,fix_term b)
-   | App(n,l,r) -> App(n,fix_term l,fix_term r)
-   | Con(n,v,tt) -> Con(n,v,tt) in
+   | Abs(p,b) -> Abs(p,fix_term b)
+   | App(l,r) -> App(fix_term l,fix_term r)
+   | Con(v,tt) -> Con(v,tt) in
    List.map (function
    | NS_bind(k,t) -> NS_bind(k,fix_term t)
    | NS_expr(t) -> NS_expr(fix_term t)
