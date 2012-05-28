@@ -43,7 +43,7 @@ let flatten_namespace (nss: resource_bundle): namespace = (
    let rec normalize_term_names : string -> (string,string) hash_table -> term -> term = fun uri ns t -> (
       match t with
       | Con(_,_) -> t
-      | Var(s) -> if ns#has s then Var(ns#get s) else fatal_error("Undefined variable name: "^s)
+      | Var(n,s) -> if ns#has s then Var(n,ns#get s) else fatal_error("Undefined variable name: "^s)
       | Abs(p,b) ->
         let pn = to_absolute uri p (unique_int()) and ns = ns#shadow() in ns#set p pn;
         Abs(pn,normalize_term_names uri ns b)
@@ -89,12 +89,12 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): ((term*ty
     (* todo, extract constraints from everything except macros *)
     match t with
     | Con(s,tt) -> a := (t,tt) :: !a
-    | Var(s) -> let tt = TAny (List.map 
+    | Var(n,s) -> let tt = TAny (List.map 
        (fun s -> if ns#has s then ns#get s else fatal_error ("Undefined variable: "^s)) 
        (string_split "[\n]" s)) in (a := ((t,tt) :: !a))
     | App(l,r) -> (
       match l with
-      | Var("@") -> extract_term_macro ns r
+      | Var(n,"@") -> extract_term_macro ns r
       | _ -> (extract_term_system ns l; extract_term_system ns r);
       (a := (t,(tvar())) :: !a)
     )
@@ -179,9 +179,9 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
    ) ns;
    (* TODO: remove ambiguities in referencing polymorphic global functions *)
    let rec fix_term : term -> term = function
-   | Var(s) as v -> 
+   | Var(n,s) as v -> 
      let vs = string_split "[\n]" s in
-     if List.length vs=1 then Var(s) else (
+     if List.length vs=1 then Var(n,s) else (
         let vt = List.assoc v a in
         let vts = List.map (fun v -> 
            try (v, (globals#get v)) with Not_found ->
@@ -190,7 +190,7 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
         let vts = List.filter (fun (v,t) -> vt <: t) vts in
         if List.length vts < 1 then fatal_error("Over-constrained variable, "^s^" : "^(pp_type vt))
         else if List.length vts > 1 then fatal_error("Under-constrained variable, "^s^" : "^(pp_type vt))
-        else Var(fst(List.nth vts 0))
+        else Var(n,fst(List.nth vts 0))
      )
    | Abs(p,b) -> Abs(p,fix_term b)
    | App(l,r) -> App(fix_term l,fix_term r)

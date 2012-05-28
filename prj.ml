@@ -25,7 +25,7 @@ let parse_uri st = (
 let parse_uri uri = (
   match parse "uri" (LazyList.M.ofString uri) parse_uri with
       Success x -> x
-    | Failure err -> fatal_error (Error.M.errorToString err)
+    | Failure err -> fatal_error("Unable to parse path uri: "^(Error.M.errorToString err))
 );;
 let print_uri uri = uri.scheme ^ "://" ^ uri.path;;
 

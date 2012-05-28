@@ -5,7 +5,7 @@ function exit(_:unit): 'a = (@ "(Unix.exit (Word8.fromInt 0))")
 function print(s:string): unit = (@ "(print " s ")")
 function print(i:int): unit = (@ "(print(Int.toString " i "))")
 function $"|"(x: 'a)(f: 'a -> 'b): 'b = f(x)
-
+function $";"(l: 'a)(r: 'b): 'b = (@ l ";" r)
 (*
 type PatternNotMatched
 (* values *)

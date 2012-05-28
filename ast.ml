@@ -28,7 +28,7 @@ and term =
       hack: use Haskell forced currying of tuples in expression language
    *)
    | Con of string * typ          (* constant *)
-   | Var of string                (* variable reference *)
+   | Var of int * string          (* variable reference *)
    | Abs of string * term         (* lambda abstraction *)
    | App of term * term           (* function application *)
 (* Types are properties that are provable at compile time *)
@@ -49,11 +49,18 @@ let option_target = ref "sml"
 let option_out = ref "a.out"
 
 (* For the convenience *)
+let rec substitute_in_term (k: string) (v: term) = function
+   | Con(c,tt) -> Con(c,tt)
+   | Var(n,m) -> if m=k then v else Var(n,m)
+   | Abs(p,b) -> if p=k then Abs(p,b) else Abs(p,(substitute_in_term k v b))
+   | App(l,r) -> App((substitute_in_term k v l),(substitute_in_term k v r))
 
 let con c t = Con(c,t)
-let var v = Var(v)
-let abs p b = Abs(p,b)
+let var v = Var(unique_int(),v)
+let abs p b = let v = var p in Abs(p,substitute_in_term p v b)
 let app l r = App(l,r)
+
+
 
 let tvar() = TVar ("_"^(unique_string()))
 let tarr p b tt = 
@@ -108,19 +115,20 @@ let rec pp_type (t: typ): string = match normalize_type t with
    | TNot t -> "~"^(pp_type t)
 let rec pp_term (t: term): string = match t with
    | Con (s,tt) -> "(\""^ s ^"\": "^ (pp_type tt) ^"\")"
-   | Var (s) -> s
+   | Var (n,s) -> s
    | Abs (p,t) -> "\\" ^ p ^ ". " ^ (pp_term t)
    | App (t1,t2) -> "(" ^ (pp_term t1) ^ " " ^ (pp_term t2) ^ ")" 
 let rec pp_short_term ?lvl:(lvl=2) (t: term): string = 
    if lvl=0 then "..." else match t with
    | Con (s,tt) -> "(\""^ s ^"\": "^ (pp_type tt) ^"\")"
-   | Var (s) -> s
+   | Var (n,s) -> s
    | Abs (p,t) -> "\\" ^ p ^ ". " ^ (pp_short_term ~lvl:(lvl-1) t)
    | App (t1,t2) -> "(" ^ (pp_short_term ~lvl:(lvl-1) t1) ^ " " ^ (pp_short_term ~lvl:(lvl-1) t2) ^ ")" 
 
 
 let (<:) a b = (a=b)
 let rec unify_type (lt: typ) (rt: typ): typ = (
+   print_endline("Unify type "^(pp_type lt)^" with "^(pp_type rt));
    (* normalize_type TAll[lt,rt] -- normalize_type should be more powerful *) 
    match (lt,rt) with
    | (TVar lv),rt -> rt
@@ -137,14 +145,8 @@ let t_typ : (term,typ) hash_table = new hashtable
 let ascript t tt = t_typ#set t tt
 let descript t = if not(t_typ#has t) then t_typ#set t (tvar()); t_typ#get t
 
-let rec substitute_in_term (k: string) (v: term) = function
-   | Con(c,tt) -> Con(c,tt)
-   | Var(m) -> if m=k then v else Var(m)
-   | Abs(p,b) -> if p=k then Abs(p,b) else Abs(p,(substitute_in_term k v b))
-   | App(l,r) -> App((substitute_in_term k v l),(substitute_in_term k v r))
-
 let is_macro_body = function
-   | App((Var("@")),_) -> true
+   | App((Var(_,"@")),_) -> true
    | _ -> false
 
 let pp_namespace_item: namespace_item -> string = function
@@ -155,8 +157,8 @@ let pp_namespace_item: namespace_item -> string = function
 let pp_namespace: namespace -> string = function 
    | ns -> (string_join "\n" (List.map pp_namespace_item ns))
 
-let uniop op a = App((Var op),a)
-let binop op a b = App((App((Var op), a)), b)
-let triop op a b c = App(( App(( App((Var op),a) ),b) ),c)
+let uniop op a = app (var op) a
+let binop op a b = app (app (var op) a) b
+let triop op a b c = app( app( app(var op) a) b) c
 
-let pattern pbs = (Var "#TODO pattern")
+let pattern pbs = var "#TODO pattern"

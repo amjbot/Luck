@@ -30,7 +30,7 @@ class sml_language : target_language = object (this)
          | _ -> assert false
       ) in
       match m with
-      | App((Var ("@")),r) -> flatten_macro_body r
+      | App((Var (n,"@")),r) -> flatten_macro_body r
       | _ -> assert false
    )
    method private translate_macro (m: term) (xs: term list) = (
@@ -39,7 +39,7 @@ class sml_language : target_language = object (this)
       | Abs(p,b) -> (match xs with 
          | [] -> assert false 
          | x::xs -> this#translate_macro (substitute_in_term p x b) xs
-      ) | App((Var ("@")),r) -> assert ((List.length xs)=0); (this#translate_simple_macro m)
+      ) | App((Var (n,"@")),r) -> assert ((List.length xs)=0); (this#translate_simple_macro m)
       | App(l,r) -> this#translate_macro l (r::xs)
       | _ -> assert false
    )
@@ -59,9 +59,9 @@ class sml_language : target_language = object (this)
          *)
          | _ -> print_endline ("Unknown constant type: "^(pp_type tt)); assert false
       )
-      | Var(k) -> this#translate_ident k
+      | Var(n,k) -> this#translate_ident k
       | Abs(p,b) -> "(fn "^(this#translate_ident p)^" => "^(this#translate_term b)^")"
-      | App((Var("@")),_) as t-> this#translate_simple_macro t
+      | App((Var(n,"@")),_) as t-> this#translate_simple_macro t
       | App(f,x) -> (* if is_applied_macro f then this#translate_macro f [x] else *)
         "("^(this#translate_term f)^" "^(this#translate_term x)^")"
    )
