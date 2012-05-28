@@ -67,9 +67,7 @@ let extract_global_types (ns: namespace): (string,typ) hash_table = (
    let globals : (string,typ) hash_table = new hashtable in
    List.iter (function
       | NS_type tt -> assert false (* how to handle type definitions? just add another rule and syntax form? *)
-      | NS_bind (k,t) -> if globals#has k 
-        then globals#set k (TAny [descript t; globals#get k])
-        else globals#set k (descript t)
+      | NS_bind (k,t) -> (assert (not (globals#has k)); globals#set k (descript t))
       | _ -> ()
    ) ns; globals
 )

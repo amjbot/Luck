@@ -68,8 +68,18 @@ let term_n t = if not(term_count#has t)
    then term_count#set t (List.length(term_count#items())); 
    term_count#get t
 
+let rec normalize_type (t: typ): typ = match t with
+   | TType(_,_) as t -> t
+   | TProp(_,_) as t -> t
+   | TVar(_) as t -> t
+   | TForall(p,t) -> TForall(p,normalize_type t)
+   | TExists(p,t) -> TExists(p,normalize_type t)
+   | TArrow(l,r) -> TArrow(normalize_type l,normalize_type r)
+   | TAll(ts) -> if List.length ts=1 then List.nth ts 0 else TAll(List.map normalize_type ts)
+   | TAny(ts) -> if List.length ts=1 then List.nth ts 0 else TAny(List.map normalize_type ts)
+   | TNot(t) -> TNot(normalize_type t)
 
-let rec pp_type: typ -> string = function
+let rec pp_type (t: typ): string = match (normalize_type t) with
    | TType(p,ps) -> p^(if List.length ps=0 then "" else "<"^(string_join "," (List.map pp_type ps))^">")
    | TProp(p,ps) -> p^(if List.length ps=0 then "" else "("^(string_join "," (List.map pp_type ps))^")")
    | TVar(v) -> "'"^v
@@ -79,14 +89,13 @@ let rec pp_type: typ -> string = function
    | TAll(ts) -> "("^(string_join " & " (List.map pp_type ts))^")"
    | TAny(ts) -> "("^(string_join " | " (List.map pp_type ts))^")"
    | TNot t -> "~"^(pp_type t)
-let rec pp_term: term -> string = function
+let rec pp_term (t: term): string = match t with
    | Con (s,tt) -> "(\""^ s ^"\": "^ (pp_type tt) ^"\")"
    | Var (s) -> s
    | Abs (p,t) -> "\\" ^ p ^ ". " ^ (pp_term t)
    | App (t1,t2) -> "(" ^ (pp_term t1) ^ " " ^ (pp_term t2) ^ ")" 
 
 
-let normalize_type (t: typ): typ = t
 let (<:) a b = (a=b)
 
 let t_typ : (term,typ) hash_table = new hashtable
