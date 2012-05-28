@@ -68,6 +68,7 @@ let term_n t = if not(term_count#has t)
    then term_count#set t (List.length(term_count#items())); 
    term_count#get t
 
+let rec quantify_type (t: typ): typ = t
 let rec normalize_type (t: typ): typ = match t with
    | TType(_,_) as t -> t
    | TProp(_,_) as t -> t

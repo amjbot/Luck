@@ -129,29 +129,29 @@ let apply_simple (f,ft) (x,xt) (fx,fxt) =
 
 (* STEP 4. typesystem#check : annotations -> annotations *)
 let typecheck (a: (term*typ) list): ((term*typ) list) = (
-    let a = List.map (fun (t,tt) -> (t,normalize_type tt)) a in
     (* normalize types, infer propositions, check consistency *)
-    let facts = ref a in
+    let facts = new hashtable in
+    let add_facts kvs = List.iter (fun kv -> facts#set kv kv) kvs in
     let stable = ref false in
+    List.iter (fun (t,tt) -> let kv = (t,normalize_type tt) in facts#set kv kv) a;
     while not !stable do 
-        let prev_facts = !facts in
-        (* update facts *)
+        let prev_facts = facts#shadow() in
         List.iter (fun i ->
-           facts := (isolate_part i) @ !facts;
+           add_facts (isolate_part i);
            List.iter (fun j -> if i<>j then(
-              facts := (contradiction i j) @ !facts;
+              add_facts (contradiction i j);
               List.iter (fun k -> if i<>j && j<>k then(
-                  facts := (apply_simple i j k) @ !facts
-              )) prev_facts
-           )) prev_facts
-        ) prev_facts;
-        if (List.length !facts) = (List.length prev_facts) then stable := true
-        else for fi=List.length prev_facts to (List.length !facts)-1 do
-            let t,tt = List.nth !facts fi in
+                  add_facts (apply_simple i j k)
+              )) (prev_facts#values())
+           )) (prev_facts#values())
+        ) (prev_facts#values());
+        if (List.length (facts#values())) = (List.length (prev_facts#values())) then stable := true
+        else List.iter (fun (t,tt) ->
+            if not (prev_facts#has(t,tt)) then
             print_endline("Proved new property, #"^(string_of_int(term_n t))^" : "^(pp_type tt))  
-        done
+        ) (facts#values())
     done;
-    !facts
+    facts#values()
 )
 
 

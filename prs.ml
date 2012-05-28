@@ -248,7 +248,7 @@ and pFUNCTION_BODY st = (
          fun (p,pt) (b,rt) -> ((p b),TArrow(pt,rt))
       ) (ps: ((term -> term)*typ) list)
         ( (b:term), (rt:typ) ) in
-      ascript f ft; f
+      ascript f (quantify_type ft); f
    )
 ) st;;
 	
