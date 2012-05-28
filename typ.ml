@@ -25,6 +25,7 @@ open Log
 let flatten_namespace (nss: resource_bundle): namespace = (
    (* extract mapping from relatively global variable names to absolute global variable names *)
    let to_absolute (uri: string) (var: string) (n: int) = uri^"$"^var^"#"^(string_of_int n) in
+   let global_types: (string,typ)hash_table = new hashtable in
    let map_relative_to_absolute_names : hard_link list -> (string,string) hash_table = fun nss -> (
       let table = new hashtable in
       table#set "@" "@";
@@ -32,6 +33,7 @@ let flatten_namespace (nss: resource_bundle): namespace = (
          | NS_bind (k,t) -> (
             let relative_name = if prefix="" then k else (prefix^"."^k) in
             let absolute_name = to_absolute uri k (term_n t) in
+            global_types#set absolute_name (descript t);
             if table#has relative_name
             then table#set relative_name ((table#get relative_name)^"\n"^absolute_name)
             else table#set relative_name absolute_name 
@@ -50,11 +52,11 @@ let flatten_namespace (nss: resource_bundle): namespace = (
    let flat_ns : namespace ref = ref [] in
    List.iter (fun (uri,ns,deps) ->
       let diff = map_relative_to_absolute_names ((uri,ns,"",["*"]) :: deps) in
-      List.iter (fun (k,v) -> print_endline(k^" = "^v)) (diff#items());
       flat_ns := List.map (function
          | NS_type tt -> assert false (* are type names relative to current namespace? *)
-         | NS_bind (k,t) -> let k = to_absolute uri k (term_n t)
-           in NS_bind (k,(normalize_term_names uri diff t))
+         | NS_bind (k,t) -> let k = to_absolute uri k (term_n t) in
+           let t' = normalize_term_names uri diff t in
+           ascript t' (descript t); NS_bind (k,t')
          | NS_expr t -> NS_expr (normalize_term_names uri diff t)
          | t -> t
       ) ns @ !flat_ns;
@@ -139,8 +141,7 @@ let typecheck (a: (term*typ) list): ((term*typ) list) = (
            List.iter (fun j -> if i<>j then(
               facts := (contradiction i j) @ !facts;
               List.iter (fun k -> if i<>j && j<>k then(
-                  (* facts := (infer3 i j k) @ !facts *)
-                  ()
+                  facts := (apply_simple i j k) @ !facts
               )) prev_facts
            )) prev_facts
         ) prev_facts;
