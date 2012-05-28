@@ -131,8 +131,8 @@ let apply_part (f,ft) (x,xt) (fx,fxt) = (
     (match ft with
     | TAny(fts) -> List.iter (fun ft ->
        match ft,fx with
-       | TArrow(pt,bt),(App(_,x')) ->
-         if x=x' && xt <: pt then result := (fx,bt) :: !result;
+       | (TArrow(pt,bt) as ft),(App(_,x')) ->
+         if x=x' && xt <: pt then result := (fx,bt) :: (f,ft) :: !result;
        | _ -> ()
     ) fts | _ -> ()); !result
 )

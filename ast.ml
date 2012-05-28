@@ -121,7 +121,14 @@ let rec pp_short_term ?lvl:(lvl=2) (t: term): string =
 
 let (<:) a b = (a=b)
 let rec unify_type (lt: typ) (rt: typ): typ = (
-   if lt=rt then lt else
+   (* normalize_type TAll[lt,rt] -- normalize_type should be more powerful *) 
+   match (lt,rt) with
+   | (TVar lv),rt -> rt
+   | lt,(TVar rv) -> lt
+   | (TAny lts),(TAny rts) -> assert false
+   | (TAny lts),rt -> if List.exists ((<:)rt) lts then rt else raise Not_found
+   | lt,(TAny rts) -> if List.exists ((<:)lt) rts then lt else raise Not_found
+   | _ -> if lt=rt then lt else
    (print_endline("TODO: unify "^(pp_type lt)^" with "^(pp_type rt)); exit 1)
 )
 

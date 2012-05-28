@@ -20,13 +20,13 @@ class sml_language : target_language = object (this)
    method private translate_simple_macro (m: term) = (
       let rec flatten_macro_atom = function
       | Con(c,tt) as t -> (match tt with
-         | TProp("string",[]) -> c
+         | TType("string",[]) -> c
          | _ -> this#translate_term t
       )| t -> this#translate_term t in
       let rec flatten_macro_body = function
       | App(l,r) -> (flatten_macro_body l)^(flatten_macro_atom r) 
       | Con(c,tt) as t -> (match tt with
-         | TProp("string",[]) -> c
+         | TType("string",[]) -> c
          | _ -> assert false
       ) in
       match m with
@@ -47,8 +47,8 @@ class sml_language : target_language = object (this)
    method private translate_term (t: term): string = (
       match t with
       | Con(v,tt) -> (match tt with 
-         | TProp("int",[]) -> v
-         | TProp("string",[]) -> 
+         | TType("int",[]) -> v
+         | TType("string",[]) -> 
            let v = Str.global_replace (Str.regexp "\n") "\\n" v in
            "\""^v^"\""
          (*

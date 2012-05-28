@@ -5,12 +5,14 @@ again: clean all
 
 all:
 	cd pcl; make all
+	cd doc; make all
 	ocamlc -w -8 -o luck -I pcl pcl/pcl.cma str.cma unix.cma misc.ml ast.ml log.ml prs.ml \
         typ.ml gen.ml prj.ml ntr.ml
 
 clean:
 	rm -f luck *.mli *.o *.cmo *.cmx *.cmi a.out
 	cd pcl; make clean
+	cd doc; make clean
 	for executable in `find testsuite -executable -type f`; do rm "$$executable"; done
 
 luck: clean all
