@@ -103,13 +103,13 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): ((term*ty
       let pt,bt,tt = tarr None None
                      (if List.mem_assoc t !a then Some(List.assoc t !a) else None) in
       ns#set p pt; extract_term_system ns b;
-     if not(List.mem_assoc t !a) then a := (t,tt) :: !a
+      if not(List.mem_assoc t !a) then a := (t,tt) :: !a
     )
   ) in 
   List.iter (function
-   | NS_bind(s,t) -> a := (t,descript t) :: !a; extract_term_system globals t
-   | NS_expr t -> extract_term_system globals t
-   | _ -> ()
+    | NS_bind(s,t) -> a := (t,descript t) :: !a; extract_term_system globals t
+    | NS_expr t -> extract_term_system globals t
+    | _ -> ()
   ) ns; !a
 )
 
@@ -126,6 +126,16 @@ let apply_simple (f,ft) (x,xt) (fx,fxt) =
     match ft,fx with
     | TArrow(pt,bt),(App(_,x')) -> if x=x' && xt <: pt then [(fx,bt)] else []
     | _ -> []
+let apply_part (f,ft) (x,xt) (fx,fxt) = (
+    let result = ref [] in
+    (match ft with
+    | TAny(fts) -> List.iter (fun ft ->
+       match ft,fx with
+       | TArrow(pt,bt),(App(_,x')) ->
+         if x=x' && xt <: pt then result := (fx,bt) :: !result;
+       | _ -> ()
+    ) fts | _ -> ()); !result
+)
 
 (* STEP 4. typesystem#check : annotations -> annotations *)
 let typecheck (a: (term*typ) list): ((term*typ) list) = (
@@ -143,7 +153,8 @@ let typecheck (a: (term*typ) list): ((term*typ) list) = (
            List.iter (fun j -> if i<>j then(
               add_facts (contradiction i j);
               List.iter (fun k -> if i<>j && j<>k then(
-                  add_facts (apply_simple i j k)
+                  add_facts (apply_simple i j k);
+                  add_facts (apply_part i j k)
               )) (prev_facts#items())
            )) (prev_facts#items())
         ) (prev_facts#items());

@@ -74,12 +74,12 @@ let rec pTYPE st = (
 ) st
 
 let rec pCONST st = (
-   (reserved "true" >> return (con "true" (TProp ("bool",[])) )) <|>
-   (reserved "false" >> return (con "false" (TProp ("bool",[])) )) <|>
-   (pINT >>= fun c -> return (con c (TProp ("int",[])) )) <|>
-   (pFLOAT >>= fun c -> return (con c (TProp ("float",[])) )) <|>
-   (pCHAR >>= fun c -> return (con c (TProp ("char",[])) )) <|>
-   (pSTRING >>= fun c -> return (con c (TProp ("string",[])) ))
+   (reserved "true" >> return (con "true" (TType ("bool",[])) )) <|>
+   (reserved "false" >> return (con "false" (TType ("bool",[])) )) <|>
+   (pINT >>= fun c -> return (con c (TType ("int",[])) )) <|>
+   (pFLOAT >>= fun c -> return (con c (TType ("float",[])) )) <|>
+   (pCHAR >>= fun c -> return (con c (TType ("char",[])) )) <|>
+   (pSTRING >>= fun c -> return (con c (TType ("string",[])) ))
 ) st
 and pATOM st = (
    pCONST <|>
@@ -92,7 +92,7 @@ and pATOM st = (
    (reserved "new" >> identifier >>= fun c -> return (var ("new "^c))) <|>
    (identifier >>= fun c -> return (var c)) <|>
    (reservedOp "..." >>= fun _ -> return (app (var "throw") (var "NotImplemented"))) <|>
-   (reservedOp "@" >> many pEXPR >>= fun sexp -> return (app (var "@") (List.fold_left app (con "" (TProp ("string",[])) ) sexp)) )
+   (reservedOp "@" >> many pEXPR >>= fun sexp -> return (app (var "@") (List.fold_left app (con "" (TType ("string",[])) ) sexp)) )
 ) st
 
 (*

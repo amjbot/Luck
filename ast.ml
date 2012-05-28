@@ -96,9 +96,9 @@ let rec normalize_type (t: typ): typ = match t with
    | TAny(ts) -> if List.length ts=1 then List.nth ts 0 else TAny(List.map normalize_type ts)
    | TNot(t) -> TNot(normalize_type t)
 
-let rec pp_type (t: typ): string = match (normalize_type t) with
+let rec pp_type (t: typ): string = match normalize_type t with
    | TType(p,ps) -> p^(if List.length ps=0 then "" else "<"^(string_join "," (List.map pp_type ps))^">")
-   | TProp(p,ps) -> p^(if List.length ps=0 then "" else "("^(string_join "," (List.map pp_type ps))^")")
+   | TProp(p,ps) -> "+"^p^(if List.length ps=0 then "" else "("^(string_join "," (List.map pp_type ps))^")")
    | TVar(v) -> "'"^v
    | TForall(x,t) -> "forall "^x^". "^(pp_type t)
    | TExists(x,t) -> "exists "^x^". "^(pp_type t)
