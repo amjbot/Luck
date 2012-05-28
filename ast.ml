@@ -118,7 +118,13 @@ let rec pp_short_term ?lvl:(lvl=2) (t: term): string =
    | Abs (p,t) -> "\\" ^ p ^ ". " ^ (pp_short_term ~lvl:(lvl-1) t)
    | App (t1,t2) -> "(" ^ (pp_short_term ~lvl:(lvl-1) t1) ^ " " ^ (pp_short_term ~lvl:(lvl-1) t2) ^ ")" 
 
+
 let (<:) a b = (a=b)
+let rec unify_type (lt: typ) (rt: typ): typ = (
+   if lt=rt then lt else
+   (print_endline("TODO: unify "^(pp_type lt)^" with "^(pp_type rt)); exit 1)
+)
+
 
 let t_typ : (term,typ) hash_table = new hashtable
 let ascript t tt = t_typ#set t tt

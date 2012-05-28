@@ -131,9 +131,11 @@ let apply_simple (f,ft) (x,xt) (fx,fxt) =
 let typecheck (a: (term*typ) list): ((term*typ) list) = (
     (* normalize types, infer propositions, check consistency *)
     let facts = new hashtable in
-    let add_facts kvs = List.iter (fun kv -> facts#set kv kv) kvs in
+    let add_facts kvs = List.iter (fun (k,v) -> 
+        facts#set k (if facts#has k then (unify_type (facts#get k) v) else v)
+    ) kvs in
     let stable = ref false in
-    List.iter (fun (t,tt) -> let kv = (t,normalize_type tt) in facts#set kv kv) a;
+    List.iter (fun (t,tt) -> let k,v = (t,normalize_type tt) in add_facts [(k,v)]) a;
     while not !stable do 
         let prev_facts = facts#shadow() in
         List.iter (fun i ->
@@ -142,16 +144,16 @@ let typecheck (a: (term*typ) list): ((term*typ) list) = (
               add_facts (contradiction i j);
               List.iter (fun k -> if i<>j && j<>k then(
                   add_facts (apply_simple i j k)
-              )) (prev_facts#values())
-           )) (prev_facts#values())
-        ) (prev_facts#values());
-        if (List.length (facts#values())) = (List.length (prev_facts#values())) then stable := true
+              )) (prev_facts#items())
+           )) (prev_facts#items())
+        ) (prev_facts#items());
+        if (List.length (facts#items())) = (List.length (prev_facts#items())) then stable := true
         else List.iter (fun (t,tt) ->
-            if not (prev_facts#has(t,tt)) then
+            if (not (prev_facts#has t)) || ((prev_facts#get t) <> (facts#get t)) then
             print_endline("Proved new property, #"^(string_of_int(term_n t))^" : "^(pp_type tt))  
-        ) (facts#values())
+        ) (facts#items())
     done;
-    facts#values()
+    facts#items()
 )
 
 
@@ -175,8 +177,8 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
            (print_endline("Missing variable "^v^" when searching for var:type in context"); exit 1)
         ) vs in
         let vts = List.filter (fun (v,t) -> vt <: t) vts in
-        if List.length vts < 1 then fatal_error("Over-constrained variable: "^s)
-        else if List.length vts > 1 then fatal_error("Under-constrained variable: "^s)
+        if List.length vts < 1 then fatal_error("Over-constrained variable, "^s^" : "^(pp_type vt))
+        else if List.length vts > 1 then fatal_error("Under-constrained variable, "^s^" : "^(pp_type vt))
         else Var(fst(List.nth vts 0))
      )
    | Abs(p,b) -> Abs(p,fix_term b)
