@@ -111,7 +111,12 @@ let rec pp_term (t: term): string = match t with
    | Var (s) -> s
    | Abs (p,t) -> "\\" ^ p ^ ". " ^ (pp_term t)
    | App (t1,t2) -> "(" ^ (pp_term t1) ^ " " ^ (pp_term t2) ^ ")" 
-
+let rec pp_short_term ?lvl:(lvl=2) (t: term): string = 
+   if lvl=0 then "..." else match t with
+   | Con (s,tt) -> "(\""^ s ^"\": "^ (pp_type tt) ^"\")"
+   | Var (s) -> s
+   | Abs (p,t) -> "\\" ^ p ^ ". " ^ (pp_short_term ~lvl:(lvl-1) t)
+   | App (t1,t2) -> "(" ^ (pp_short_term ~lvl:(lvl-1) t1) ^ " " ^ (pp_short_term ~lvl:(lvl-1) t2) ^ ")" 
 
 let (<:) a b = (a=b)
 

@@ -208,7 +208,7 @@ let annotate (rb: resource_bundle): annotated_namespace = (
    List.iter (fun (k,v) -> print_endline(k^" : "^(pp_type v))) (globals#items());
    let annotations = extract_system globals ns in
    print_endline "Print annotations:";
-   List.iter (fun (t,tt) -> print_endline ("#"^(string_of_int (term_n t))^" : "^(pp_type tt))) annotations;
+   List.iter (fun (t,tt) -> print_endline ("#"^(string_of_int (term_n t))^" = "^(pp_short_term t)^" : "^(pp_type tt))) annotations;
    let annotations = typecheck annotations in
    let ns = fix_namespace (ns, annotations) in
    (ns,annotations)
