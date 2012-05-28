@@ -68,7 +68,23 @@ let term_n t = if not(term_count#has t)
    then term_count#set t (List.length(term_count#items())); 
    term_count#get t
 
-let rec quantify_type (t: typ): typ = t
+let rec quantify_type (t: typ): typ = (
+   let open_terms = new hashtable in
+   let rec search_open_terms closed t = match t with
+   | TType(_,_) -> ()
+   | TProp(_,_) -> ()
+   | TVar(v) -> if not(List.mem v closed) then open_terms#set v v
+   | TForall(p,t) -> search_open_terms (p :: closed) t
+   | TExists(p,t) -> search_open_terms (p :: closed) t
+   | TArrow(l,r) -> List.iter (search_open_terms closed) [l;r]
+   | TAll(ts) -> List.iter (search_open_terms closed) ts
+   | TAny(ts) -> List.iter (search_open_terms closed) ts
+   | TNot(t) -> search_open_terms closed t
+   in search_open_terms [] t; let t = ref t in
+   List.iter (fun v -> t := TForall(v,!t)) (open_terms#values()); 
+   !t
+)
+
 let rec normalize_type (t: typ): typ = match t with
    | TType(_,_) as t -> t
    | TProp(_,_) as t -> t
@@ -84,8 +100,8 @@ let rec pp_type (t: typ): string = match (normalize_type t) with
    | TType(p,ps) -> p^(if List.length ps=0 then "" else "<"^(string_join "," (List.map pp_type ps))^">")
    | TProp(p,ps) -> p^(if List.length ps=0 then "" else "("^(string_join "," (List.map pp_type ps))^")")
    | TVar(v) -> "'"^v
-   | TForall(x,t) -> "forall "^x^(pp_type t)
-   | TExists(x,t) -> "exists "^x^(pp_type t)
+   | TForall(x,t) -> "forall "^x^". "^(pp_type t)
+   | TExists(x,t) -> "exists "^x^". "^(pp_type t)
    | TArrow(a,b) -> "("^(pp_type a)^" -> "^(pp_type b)^")"
    | TAll(ts) -> "("^(string_join " & " (List.map pp_type ts))^")"
    | TAny(ts) -> "("^(string_join " | " (List.map pp_type ts))^")"
