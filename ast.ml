@@ -72,8 +72,8 @@ let tarr p b tt =
 
 let term_count : (term,int) hash_table = new hashtable
 let term_n t = if not(term_count#has t)
-   then term_count#set t (List.length(term_count#items())); 
-   term_count#get t
+      then term_count#set t (List.length(term_count#items())); 
+      term_count#get t
 
 let rec quantify_type (t: typ): typ = (
    let open_terms = new hashtable in
@@ -128,7 +128,6 @@ let rec pp_short_term ?lvl:(lvl=2) (t: term): string =
 
 let (<:) a b = (a=b)
 let rec unify_type (lt: typ) (rt: typ): typ = (
-   print_endline("Unify type "^(pp_type lt)^" with "^(pp_type rt));
    (* normalize_type TAll[lt,rt] -- normalize_type should be more powerful *) 
    match (lt,rt) with
    | (TVar lv),rt -> rt

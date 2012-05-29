@@ -36,7 +36,7 @@ let flatten_namespace (nss: resource_bundle): namespace = (
             global_types#set absolute_name (descript t);
             if table#has relative_name
             then table#set relative_name ((table#get relative_name)^"\n"^absolute_name)
-            else table#set relative_name absolute_name 
+            else table#set relative_name absolute_name
          ) | _ -> ()
       ) ns) nss; table
    ) in
@@ -107,7 +107,7 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): ((term*ty
     )
   ) in 
   List.iter (function
-    | NS_bind(s,t) -> a := (t,descript t) :: !a; extract_term_system globals t
+    | NS_bind(s,t) -> a := (t,globals#get s) :: !a; extract_term_system globals t
     | NS_expr t -> extract_term_system globals t
     | _ -> ()
   ) ns; !a
@@ -128,12 +128,11 @@ let apply_simple (f,ft) (x,xt) (fx,fxt) =
     | _ -> []
 let apply_part (f,ft) (x,xt) (fx,fxt) = (
     let result = ref [] in
-    (match ft with
-    | TAny(fts) -> List.iter (fun ft ->
-       match ft,fx with
-       | (TArrow(pt,bt) as ft),(App(_,x')) ->
-         if x=x' && xt <: pt then result := (fx,bt) :: (f,ft) :: !result;
-       | _ -> ()
+    (match ft with | TAny(fts) -> List.iter (fun ft ->
+     match ft,fx with | (TArrow(pt,bt) as ft),(App(f',x')) ->
+        if f=f' && x=x' && xt <: pt then
+        result := (fx,bt) :: (f,ft) :: !result
+     | _ -> ()
     ) fts | _ -> ()); !result
 )
 
@@ -160,7 +159,7 @@ let typecheck (a: (term*typ) list): ((term*typ) list) = (
         ) (prev_facts#items());
         if (List.length (facts#items())) = (List.length (prev_facts#items())) then stable := true
         else List.iter (fun (t,tt) ->
-            if (not (prev_facts#has t)) || ((prev_facts#get t) <> (facts#get t)) then
+            if (not (prev_facts#has t)) || (not((prev_facts#get t) = (facts#get t))) then
             print_endline("Proved new property, #"^(string_of_int(term_n t))^" : "^(pp_type tt))  
         ) (facts#items())
     done;
@@ -187,9 +186,10 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
            try (v, (globals#get v)) with Not_found ->
            (print_endline("Missing variable "^v^" when searching for var:type in context"); exit 1)
         ) vs in
+        let vts_type = TAny(List.map (fun (v,t) -> t) vts) in
         let vts = List.filter (fun (v,t) -> vt <: t) vts in
-        if List.length vts < 1 then fatal_error("Over-constrained variable, "^s^" : "^(pp_type vt))
-        else if List.length vts > 1 then fatal_error("Under-constrained variable, "^s^" : "^(pp_type vt))
+        if List.length vts < 1 then fatal_error("Over-constrained variable, "^s^" : "^(pp_type vt)^" applied to "^(pp_type vts_type))
+        else if List.length vts > 1 then fatal_error("Under-constrained variable, "^s^" : "^(pp_type vt)^" applied to "^(pp_type vts_type))
         else Var(n,fst(List.nth vts 0))
      )
    | Abs(p,b) -> Abs(p,fix_term b)

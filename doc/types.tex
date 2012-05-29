@@ -27,8 +27,15 @@
 \begin{prooftree}
 \AxiomC{$f:A \to B \lor \mathellipsis$}
 \AxiomC{$x:A$}
-\LeftLabel{Apply Part:}
+\LeftLabel{Apply Part (1):}
 \BinaryInfC{$f(x):B$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$f:A \to B \lor \mathellipsis$}
+\AxiomC{$x:A$}
+\LeftLabel{Apply Part (2):}
+\BinaryInfC{$f:A \to B$}
 \end{prooftree}
 
 \begin{prooftree}
