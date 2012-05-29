@@ -124,7 +124,7 @@ let isolate_part (ix,it) =
 
 let apply_simple (f,ft) (x,xt) (fx,fxt) =
     match ft,fx with
-    | TArrow(pt,bt),(App(_,x')) -> if x=x' && xt <: pt then [(fx,bt)] else []
+    | TArrow(pt,bt),(App(f',x')) -> if f=f' && x=x' && xt <: pt then [(fx,bt)] else []
     | _ -> []
 let apply_part (f,ft) (x,xt) (fx,fxt) = (
     let result = ref [] in

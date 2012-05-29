@@ -4,9 +4,8 @@ function $"or"(a: bool)(b: bool): bool = (@ "(" a " orelse " b ")")
 
 (* String Operators *)
 function $"+"(a: string)(b: string): string = (@ "(" a "^" b ")")
-(*
 function $"+"(a: string)(b: bool): string = (@ "(" a "^(Bool.toString " b "))")
-*)
+
 
 function print(s:string): unit = (@ "(print " s ")")
 function print(i:int): unit = (@ "(print(Int.toString " i "))")

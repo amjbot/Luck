@@ -39,10 +39,16 @@
 \end{prooftree}
 
 \begin{prooftree}
-\AxiomC{$\forall `a:`a \to `b$}
-\AxiomC{$x:A$}
+\AxiomC{$f:A \to (B \lor ...)$}
+\AxiomC{$f(x): B$}
+\LeftLabel{Backpressure:}
+\BinaryInfC{$f:A \to B$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$x:\forall `a. `b$}
 \LeftLabel{Instantiation:}
-\BinaryInfC{$f(x):`b[`a \mapsto A]$}
+\UnaryInfC{$x:`b[`a \mapsto `c]$}
 \end{prooftree}
 
 \end{document}
