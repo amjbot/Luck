@@ -1,8 +1,11 @@
 \documentclass[final,letterpaper,twoside,12pt]{article}
 \usepackage{bussproofs}
+\usepackage{fullpage}
 \date{\today}
 \title{Luck Typesystem}
 \begin{document}
+
+\textsc{\Large Inference Rules}\\[0.8cm]
 
 \begin{prooftree}
 \AxiomC{$x:A$}
@@ -49,6 +52,17 @@
 \AxiomC{$x:\forall `a. `b$}
 \LeftLabel{Instantiation:}
 \UnaryInfC{$x:`b[`a \mapsto `c]$}
+\end{prooftree}
+
+\vfill
+\pagebreak
+\clearpage
+\textsc{\Large Normalization Rules}\\[0.8cm]
+
+\begin{prooftree}
+\AxiomC{$f:(A \to B) \lor (A \to C))$}
+\LeftLabel{Common Prefix:}
+\UnaryInfC{$f:A \to (B \lor C)$}
 \end{prooftree}
 
 \end{document}
