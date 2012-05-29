@@ -22,8 +22,8 @@ test: again
 	./luck -test
 
 tdd: again
-	./luck testsuite/examples/lambda.lu
-	#./luck testsuite/examples/fibonacci.lu
+	./luck testsuite/examples/string.lu
+	#./luck testsuite/examples/bool.lu
 
 testsuite: again
 	SUCCESS=0; ERROR=0; for filename in `find testsuite -name *.lu -size +0`; do \

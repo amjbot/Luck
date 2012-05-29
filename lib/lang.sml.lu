@@ -1,23 +1,33 @@
+(* Boolean Operators *)
+function $"and"(a: bool)(b: bool): bool = (@ "(" a " andalso " b ")")
+function $"or"(a: bool)(b: bool): bool = (@ "(" a " orelse " b ")")
 
-function exit(code:int): 'a = (@ "(Unix.exit (Word8.fromInt " code "))")
-function exit(_:unit): 'a = (@ "(Unix.exit (Word8.fromInt 0))")
+(* String Operators *)
+function $"+"(a: string)(b: string): string = (@ "(" a "^" b ")")
+(*
+function $"+"(a: string)(b: bool): string = (@ "(" a "^(Bool.toString " b "))")
+*)
 
 function print(s:string): unit = (@ "(print " s ")")
 function print(i:int): unit = (@ "(print(Int.toString " i "))")
+
+
 function $"|"(x: 'a)(f: 'a -> 'b): 'b = f(x)
 function $";"(l: 'a)(r: 'b): 'b = r
+
+(* System calls *)
+function exit(code:int): 'a = (@ "(Unix.exit (Word8.fromInt " code "))")
+function exit(_:unit): 'a = (@ "(Unix.exit (Word8.fromInt 0))")
+
+
 (*
 type PatternNotMatched
 (* values *)
 let $"()":() = (@ "()")
 
-function $"#pattern-or" (l: 'a -> 'b) (r: 'c -> 'd) (t: 'a|'c): ('b|'d) = 
-  try l(t) catch PatternNotMatched then r(t)
 function $"throw" (x: 'a): 'b = (@ "(raise " x ")" )
 
 (* language primitives *)
-function $";"(l: 'a)(r: 'b): 'b = (@ "(" l " " r ")")
-function $"|"(x: 'a)(f: 'a -> 'b): 'b = (@ "(" f " " x ")")
 function $","(): () = (@ "()")
 function $","(a: 'a)(): 'a = (@ "(" a ")")
 function $","(a: 'a)(b: 'b)(): ('a,'b) = (@ "(" a "," b ")")
@@ -34,12 +44,8 @@ function $"throw"(x: 'a): 'b = (@ "raise " x)
 (* operations on values *)
 function $"+"(x: int)(y: int): int = @ "(" x " + " y ")"
 
-
-
 (* utility function *)
 function map(f: 'a -> 'b)(l: list['a]): list['b] = @ "(List.map" f " " l ")"
-
-function print(s: string): () = @ "(print " s ")"
 
 (* system calls *)
 *)

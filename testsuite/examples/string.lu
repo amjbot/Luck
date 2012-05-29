@@ -1,0 +1,2 @@
+print("hello world\n");
+print("line "+"2\n")
