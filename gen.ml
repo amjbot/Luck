@@ -38,7 +38,7 @@ class sml_language : target_language = object (this)
       match m with
       | Abs(p,b) -> (match xs with 
          | [] -> assert false 
-         | x::xs -> this#translate_macro (substitute_in_term p x b) xs
+         | x::xs -> this#translate_macro (term_substitute p x b) xs
       ) | App((Var (n,"@")),r) -> assert ((List.length xs)=0); (this#translate_simple_macro m)
       | App(l,r) -> this#translate_macro l (r::xs)
       | _ -> assert false

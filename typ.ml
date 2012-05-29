@@ -122,6 +122,10 @@ let contradiction (ix,it) (jx,jt) =
 let isolate_part (ix,it) = 
     match it with TAll ts -> List.map(fun t -> (ix,t)) ts | _ -> []
 
+let instantiate (ix,it) =
+    match it with TForall(p,t) -> [(ix,type_substitute p (tvar()) t)]
+    | _ -> []
+
 let apply_simple (f,ft) (x,xt) (fx,fxt) =
     match ft,fx with
     | TArrow(pt,bt),(App(f',x')) -> if f=f' && x=x' && xt <: pt then [(fx,bt)] else []
@@ -156,6 +160,7 @@ let typecheck (a: (term*typ) list): ((term*typ) list) = (
         let prev_facts = facts#shadow() in
         List.iter (fun i ->
            add_facts (isolate_part i);
+           add_facts (instantiate i);
            List.iter (fun j -> if i<>j then(
               add_facts (backpressure i j);
               add_facts (contradiction i j);

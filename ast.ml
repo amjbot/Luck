@@ -49,15 +49,26 @@ let option_target = ref "sml"
 let option_out = ref "a.out"
 
 (* For the convenience *)
-let rec substitute_in_term (k: string) (v: term) = function
+let rec term_substitute (k: string) (v: term) = function
    | Con(c,tt) -> Con(c,tt)
    | Var(n,m) -> if m=k then v else Var(n,m)
-   | Abs(p,b) -> if p=k then Abs(p,b) else Abs(p,(substitute_in_term k v b))
-   | App(l,r) -> App((substitute_in_term k v l),(substitute_in_term k v r))
+   | Abs(p,b) -> if p=k then Abs(p,b) else Abs(p,(term_substitute k v b))
+   | App(l,r) -> App((term_substitute k v l),(term_substitute k v r))
+
+let rec type_substitute (k: string) (v: typ) = function
+   | TType(t,ts) -> TType(t,List.map (type_substitute k v) ts)
+   | TProp(t,ts) -> TProp(t,List.map (type_substitute k v) ts)
+   | TVar(k') -> if k=k' then v else TVar(k')
+   | TForall(p,t) -> TForall(p,if p=k then t else (type_substitute k v t))
+   | TExists(p,t) -> TExists(p,if p=k then t else (type_substitute k v t))
+   | TArrow(l,r) -> TArrow(type_substitute k v l, type_substitute k v r)
+   | TAll(ts) -> TAll(List.map (type_substitute k v) ts)
+   | TAny(ts) -> TAll(List.map (type_substitute k v) ts)
+   | TNot(t) -> TNot(type_substitute k v t)
 
 let con c t = Con(c,t)
 let var v = Var(unique_int(),v)
-let abs p b = let v = var p in Abs(p,substitute_in_term p v b)
+let abs p b = let v = var p in Abs(p,term_substitute p v b)
 let app l r = App(l,r)
 
 
