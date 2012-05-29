@@ -136,6 +136,13 @@ let apply_part (f,ft) (x,xt) (fx,fxt) = (
     ) fts | _ -> ()); !result
 )
 
+let backpressure (f,ft) (fx,fxt) = (
+    match fx,ft with 
+    | App(f',x'),TArrow(p,TAny(fts)) -> if f=f' then [(f,TArrow(p,fxt))] else []
+    | _ -> []
+)
+
+
 (* STEP 4. typesystem#check : annotations -> annotations *)
 let typecheck (a: (term*typ) list): ((term*typ) list) = (
     (* normalize types, infer propositions, check consistency *)
@@ -150,6 +157,7 @@ let typecheck (a: (term*typ) list): ((term*typ) list) = (
         List.iter (fun i ->
            add_facts (isolate_part i);
            List.iter (fun j -> if i<>j then(
+              add_facts (backpressure i j);
               add_facts (contradiction i j);
               List.iter (fun k -> if i<>j && j<>k then(
                   add_facts (apply_simple i j k);

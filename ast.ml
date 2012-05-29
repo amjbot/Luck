@@ -93,6 +93,7 @@ let rec quantify_type (t: typ): typ = (
 )
 
 let rec normalize_type (t: typ): typ = match t with
+   (* TODO -- unify TAny *)
    | TType(_,_) as t -> t
    | TProp(_,_) as t -> t
    | TVar(_) as t -> t
