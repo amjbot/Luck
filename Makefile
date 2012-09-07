@@ -8,6 +8,7 @@ all:
 	cd doc; make all
 	ocamlc -w -8 -o luck -I pcl pcl/pcl.cma str.cma unix.cma misc.ml ast.ml log.ml prs.ml \
         typ.ml gen.ml prj.ml ntr.ml
+	./luck bootstrap/ntr.lu
 
 clean:
 	rm -f luck *.mli *.o *.cmo *.cmx *.cmi a.out
@@ -22,8 +23,7 @@ test: again
 	./luck -test
 
 tdd: again
-	./luck testsuite/examples/string.lu
-	#./luck testsuite/examples/bool.lu
+	./luck testsuite/examples/operators.lu
 
 testsuite: again
 	SUCCESS=0; ERROR=0; for filename in `find testsuite -name *.lu -size +0`; do \

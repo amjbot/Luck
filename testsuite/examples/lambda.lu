@@ -1,6 +1,0 @@
-
-print("hello world\n");
-print(1)
-(* "hello world" | print *)
-(* print((fn a = a)("hello world\n")) *)
-(* "hello world" | (fn(a) = a) | print *)

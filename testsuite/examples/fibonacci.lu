@@ -1,6 +1,0 @@
-function fibonacci (x: int) = 
-   x:{ 0 -> 0 }
-     { 1 -> 1 }
-     { n -> fibonacci (n-1) + fibonacci (n-2) }
-
-10 | fibonacci | print

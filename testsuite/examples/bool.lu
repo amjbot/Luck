@@ -1,1 +1,0 @@
-print("true and false = "+(true and false))

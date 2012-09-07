@@ -15,6 +15,21 @@
 \end{prooftree}
 
 \begin{prooftree}
+\AxiomC{$\lambda p . b : A \to B$}
+\LeftLabel{Inside Abstraction (1)}
+\UnaryInfC{$ p:A $}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$\lambda p . b : A \to B$}
+\LeftLabel{Inside Abstraction (2)}
+\UnaryInfC{$ b:B $}
+\end{prooftree}
+
+% Information does not propogate out from abstractions
+% All abstractions are implicitly quantified
+
+\begin{prooftree}
 \AxiomC{$x:A \land \mathellipsis$}
 \LeftLabel{Isolate Part:}
 \UnaryInfC{$x:A$}
@@ -46,12 +61,6 @@
 \AxiomC{$f(x): B$}
 \LeftLabel{Backpressure:}
 \BinaryInfC{$f:A \to B$}
-\end{prooftree}
-
-\begin{prooftree}
-\AxiomC{$x:\forall `a. `b$}
-\LeftLabel{Instantiation:}
-\UnaryInfC{$x:`b[`a \mapsto `c]$}
 \end{prooftree}
 
 \vfill

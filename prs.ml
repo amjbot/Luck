@@ -3,10 +3,10 @@ struct
   open CharParse.CharPrim
   open CharParse.M
 
-  let commentStart = "(*"
-  let commentEnd = "*)"
-  let commentLine = "#"
-  let nestedComments = true
+  let commentStart = ""
+  let commentEnd = ""
+  let commentLine = ""
+  let nestedComments = false
   let identStart st = (letter <|> (char '_')) st
                              (* of course, a leading prime is used in the
                              case of tyvars, but it's easiest to handle
@@ -43,8 +43,9 @@ open Ast
 
 
 (* token parsers *)
-let pINT     st = (integer >>= fun c -> return (string_of_int c)) st
-let pFLOAT   st = (float >>= fun c -> return (string_of_float c)) st
+let pINT    st = (integer >>= fun i -> return (string_of_int i)) st
+let pREAL   st = (float >>= fun f -> return (string_of_float f)) st
+
 let pBOOL st = (
    (reserved "true" >>= fun _ -> return "true") <|>
    (reserved "false" >>= fun _ -> return "false")
@@ -57,34 +58,28 @@ let identifier st = (identifier <|> (reservedOp "$" >> stringLiteral)) st
 let rec pTYPE st = (
    (reserved "forall" >> symbolChar '\'' >> identifier >>= fun p -> 
     reservedOp "." >> pTYPE >>= fun b -> return (TForall(p,b))) <|>
-   (reserved "exists" >> symbolChar '\'' >> identifier >>= fun p -> 
-    reservedOp "." >> pTYPE >>= fun b -> return (TExists(p,b))) <|>
    (attempt (pTYPE_ATOM >>= fun p -> reservedOp "->" >> pTYPE >>= fun b -> return (TArrow(p,b)))) <|>
-   (attempt (pTYPE_ATOM >>= fun l -> reservedOp "&" >> pTYPE >>= fun r -> return (TAll[l;r]))) <|>
    (attempt (pTYPE_ATOM >>= fun l -> reservedOp "|" >> pTYPE >>= fun r -> return (TAny[l;r]))) <|>
    pTYPE_ATOM
 ) st and pTYPE_ATOM st = (
    (symbolChar '\'' >> identifier >>= fun v -> return (TVar v)) <|>
-   (reservedOp "~" >> pTYPE_ATOM >>= fun t -> return (TNot t)) <|>
    (identifier >>= fun p -> 
        ((reservedOp "<" >> (commaSep pTYPE) >>= fun ts -> reservedOp ">" >> return ts) <|> (return [])) 
-       >>= fun ts -> return (TType(p,ts))) <|>
-   (reservedOp "+" >> identifier >>= fun p -> ((parens (commaSep pTYPE)) <|> (return [])) 
-       >>= fun ts -> return (TProp(p,ts)))
+       >>= fun ts -> return (TType(p,ts)))
 ) st
 
 let rec pCONST st = (
    (reserved "true" >> return (con "true" (TType ("bool",[])) )) <|>
    (reserved "false" >> return (con "false" (TType ("bool",[])) )) <|>
+   (attempt (pREAL >>= fun c -> return (con c (TType ("real",[])) ))) <|>
    (pINT >>= fun c -> return (con c (TType ("int",[])) )) <|>
-   (pFLOAT >>= fun c -> return (con c (TType ("float",[])) )) <|>
    (pCHAR >>= fun c -> return (con c (TType ("char",[])) )) <|>
    (pSTRING >>= fun c -> return (con c (TType ("string",[])) ))
 ) st
 and pATOM st = (
    pCONST <|>
    (parens pEXPR) <|>
-   (brackets (commaSep pEXPR) >>= fun ls -> 
+   (brackets (commaSep pEXPR) >>= fun ls ->
       return (List.fold_left
          (fun t v -> binop ".add" t v) (var "[]") ls
       )
@@ -94,12 +89,6 @@ and pATOM st = (
    (reservedOp "..." >>= fun _ -> return (app (var "throw") (var "NotImplemented"))) <|>
    (reservedOp "@" >> many pEXPR >>= fun sexp -> return (app (var "@") (List.fold_left app (con "" (TType ("string",[])) ) sexp)) )
 ) st
-
-(*
-    declaring syntactic forms, and declaring functions are totally separate things.
-    type directed parsing cannot unify, due to insane ambiguities with type inference.
-    one syntactic form must have one interpretation... per namespace at least.
-*)
 
 and pSIMPLEEXPR st =
   let table = [
@@ -273,8 +262,8 @@ let pFUNCTION st = (
 ) st;;
 
 let pLETSTMT st = ((
-   identifier >>= fun p -> reservedOp "=" >> pEXPR >>= fun e -> 
-   optional (reservedOp ";") >> return (NS_bind (p, e))
+   identifier >>= fun p -> pOPTIONALTYPE >>= fun t -> reservedOp "=" >> pEXPR >>= fun e -> 
+   optional (reservedOp ";") >> return (ascript e t; NS_bind (p, e))
 ) <?> "let statement") st;;
 
 let pTOPSTMT st = (

@@ -3,20 +3,6 @@ open Ast
 open Log
 
 (* TODO:
-
-   1. create test case for simply typed lambda calculus [x]
-   2. solve test case for simply typed lambda calculus [x]
-   3. connect simply typed lambda calculus with ast/prs frontend [3/19/2012?]
-   4. connect simply typed lambda calculus with gen backend [3/19/2012?]
-
-   ditto 1-4, s/simply typed lambda/F<:/g
-   ditto 1-4, s/simply typed lambda/hard luck/g
-   ditto 1-4, s/simply typed lambda/soft luck/g
-
-   Simply Typed Lambda Calculus (DUE: 2012/03) [x]
-   F<:                          (DUE: 2012/04)
-   L<: and/or L<:?              (DUE: 2012/05)
-   ...
    v1.0                         (DUE: 2012/12)
 *)
 
@@ -44,9 +30,9 @@ let flatten_namespace (nss: resource_bundle): namespace = (
       match t with
       | Con(_,_) -> t
       | Var(n,s) -> if ns#has s then Var(n,ns#get s) else fatal_error("Undefined variable name: "^s)
-      | Abs(p,b) ->
-        let pn = to_absolute uri p (unique_int()) and ns = ns#shadow() in ns#set p pn;
-        Abs(pn,normalize_term_names uri ns b)
+      | Abs(n,p,b) ->
+        let pn = to_absolute uri p n and ns = ns#shadow() in ns#set p pn;
+        Abs(n,pn,normalize_term_names uri ns b)
       | App(f,x) -> App(normalize_term_names uri ns f,normalize_term_names uri ns x)
    ) in
    let flat_ns : namespace ref = ref [] in
@@ -82,23 +68,29 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): ((term*ty
      match t with
      | App(l,(Con(_,_))) -> extract_term_macro ns l
      | App(l,r) -> extract_term_macro ns l; extract_term_system ns r
-     | Abs(_,_) as v -> extract_term_system ns v
+     | Abs(_,_,_) as v -> extract_term_system ns v
      | _ -> ()
   ) 
   and extract_term_system (ns: (string,typ) hash_table) (t: term): unit = (
     (* todo, extract constraints from everything except macros *)
     match t with
     | Con(s,tt) -> a := (t,tt) :: !a
-    | Var(n,s) -> let tt = TAny (List.map 
+    | Var(n,s) -> (let tt = (List.map 
        (fun s -> if ns#has s then ns#get s else fatal_error ("Undefined variable: "^s)) 
-       (string_split "[\n]" s)) in (a := ((t,tt) :: !a))
+       (string_split "[\n]" s)) in 
+        if List.length tt=0
+        then (a := ((t,tvar()) :: !a))
+        else if List.length tt=1
+        then (a := ((t,List.nth tt 0) :: !a))
+        else (a := ((t,TAny tt) :: !a))
+    )
     | App(l,r) -> (
       match l with
       | Var(n,"@") -> extract_term_macro ns r
       | _ -> (extract_term_system ns l; extract_term_system ns r);
       (a := (t,(tvar())) :: !a)
     )
-    | Abs(p,b) -> (
+    | Abs(n,p,b) -> (
       let ns = ns#shadow() in
       let pt,bt,tt = tarr None None
                      (if List.mem_assoc t !a then Some(List.assoc t !a) else None) in
@@ -110,21 +102,17 @@ let extract_system (globals: (string,typ) hash_table) (ns: namespace): ((term*ty
     | NS_bind(s,t) -> a := (t,globals#get s) :: !a; extract_term_system globals t
     | NS_expr t -> extract_term_system globals t
     | _ -> ()
-  ) ns; !a
+  ) ns; List.map (fun (t,tt) -> (t,instantiate_type tt)) !a
 )
 
 (* Inference rules *)
-let contradiction (ix,it) (jx,jt) = 
-    if ix=jx && (match it,jt with (it,TNot jt) -> it=jt | _ -> false)
-    then fatal_error("Contradiction")
-    else []
-
-let isolate_part (ix,it) = 
-    match it with TAll ts -> List.map(fun t -> (ix,t)) ts | _ -> []
-
-let instantiate (ix,it) =
-    match it with TForall(p,t) -> [(ix,type_substitute p (tvar()) t)]
-    | _ -> []
+let inside_abstraction (ix,it) = 
+    match ix,it with Abs(n,p,b),TArrow(pt,bt) -> (
+       let types = ref [(b,bt)] in
+       let add_var t = types := (t,pt) :: !types in
+       term_apply p add_var b; 
+       types := (b,bt) :: !types; !types
+    ) | _ -> []
 
 let apply_simple (f,ft) (x,xt) (fx,fxt) =
     match ft,fx with
@@ -142,7 +130,7 @@ let apply_part (f,ft) (x,xt) (fx,fxt) = (
 
 let backpressure (f,ft) (fx,fxt) = (
     match fx,ft with 
-    | App(f',x'),TArrow(p,TAny(fts)) -> if f=f' then [(f,TArrow(p,fxt))] else []
+    | App(f',x'),TArrow(p,b) -> if f=f' then [(f,TArrow(p,unify_type b fxt))] else []
     | _ -> []
 )
 
@@ -159,25 +147,42 @@ let typecheck (a: (term*typ) list): ((term*typ) list) = (
     while not !stable do 
         let prev_facts = facts#shadow() in
         List.iter (fun i ->
-           add_facts (isolate_part i);
-           add_facts (instantiate i);
+           add_facts (inside_abstraction i);
            List.iter (fun j -> if i<>j then(
               add_facts (backpressure i j);
-              add_facts (contradiction i j);
               List.iter (fun k -> if i<>j && j<>k then(
                   add_facts (apply_simple i j k);
                   add_facts (apply_part i j k)
               )) (prev_facts#items())
            )) (prev_facts#items())
         ) (prev_facts#items());
-        if (List.length (facts#items())) = (List.length (prev_facts#items())) then stable := true
+        if List.for_all (fun (k,v) -> (prev_facts#has k) && v=(prev_facts#get k)) (facts#items()) then stable := true
         else List.iter (fun (t,tt) ->
-            if (not (prev_facts#has t)) || (not((prev_facts#get t) = (facts#get t))) then
+            if (not (prev_facts#has t)) || (not((prev_facts#get t)=tt)) then
             print_endline("Proved new property, #"^(string_of_int(term_n t))^" : "^(pp_type tt))  
         ) (facts#items())
     done;
     facts#items()
 )
+let check_typecheck input output = (
+    List.iter (fun (t,tt) -> 
+       try if (List.assoc t output)=tt
+       then ()
+       else Log.fatal_error( "typecheck failed. Expected "^(pp_type (List.assoc t output))^" but received "^(pp_type tt) )
+       with Not_found -> Log.fatal_error ("typecheck lost a type for term: "^(pp_term t))
+    ) (typecheck input)
+)
+let f1 = (var("f1"), TArrow(TType("A",[]),TType("B",[])))
+let t1 = (var("t1"), TType("A",[]))
+let f1t1 = (app (fst f1) (fst t1), TVar("a"))
+let f1t1_answer = (fst f1t1, TType("B",[]))
+let f2 = (var("f2"), TAny[ TArrow(TType("A",[]),TType("B",[])); TArrow(TType("C",[]),TType("D",[])) ] )
+let f2_answer = (fst f2, TArrow(TType("A",[]),TType("B",[])))
+let f2t1 = (app (fst f2) (fst t1), TVar("a"))
+let f2t1_answer = (fst f2t1, TType("B",[]))
+
+let _ = check_typecheck [f1;t1;f1t1] [f1;t1;f1t1_answer]
+let _ = check_typecheck [f2;t1;f2t1] [f2_answer;t1;f2t1_answer]
 
 
 (* STEP 5. fix_namespace : annotated_namespace -> namespace *)
@@ -199,13 +204,13 @@ let fix_namespace ((ns,a): annotated_namespace): namespace = (
            try (v, (globals#get v)) with Not_found ->
            (print_endline("Missing variable "^v^" when searching for var:type in context"); exit 1)
         ) vs in
-        let vts_type = TAny(List.map (fun (v,t) -> t) vts) in
+        let vts_type = string_join " | " (List.map (fun (v,t) -> pp_type t) vts) in
         let vts = List.filter (fun (v,t) -> vt <: t) vts in
-        if List.length vts < 1 then fatal_error("Over-constrained variable, "^s^" : "^(pp_type vt)^" applied to "^(pp_type vts_type))
-        else if List.length vts > 1 then fatal_error("Under-constrained variable, "^s^" : "^(pp_type vt)^" applied to "^(pp_type vts_type))
+        if List.length vts < 1 then fatal_error("Over-constrained variable, #"^(v $ term_n $ string_of_int)^" "^s^" : "^(pp_type vt)^" not in "^vts_type)
+        else if List.length vts > 1 then fatal_error("Under-constrained variable, #"^(v $ term_n $ string_of_int)^" "^s^" : "^(pp_type vt)^" not in "^vts_type)
         else Var(n,fst(List.nth vts 0))
      )
-   | Abs(p,b) -> Abs(p,fix_term b)
+   | Abs(n,p,b) -> Abs(n,p,fix_term b)
    | App(l,r) -> App(fix_term l,fix_term r)
    | Con(v,tt) -> Con(v,tt) in
    List.map (function

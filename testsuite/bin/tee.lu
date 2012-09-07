@@ -1,4 +1,0 @@
-let o = [stdout] + map(open)(args)
-for c in read() then
-  for f in o then
-    f.write c

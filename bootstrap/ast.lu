@@ -1,50 +1,50 @@
-(* Subtle change is real change. *)
-open Misc
-open Str
+type file_bundle               = [filename]
+type resource_bundle           = [resource]
+type annotated_namespace       = namespace,[term,typ]
+type target_executable         = [filename]
 
-type file_bundle               = filename list
-and  resource_bundle           = resource list
-and  annotated_namespace       = namespace * ((term * typ) list)
-and  target_executable         = filename list
-
-(* Namespaces are one honking great idea -- let's do more of those! *)
-and  symbolic_link             = string * string * (string list) (* uri, prefix, symbols *)
-and  hard_link                 = string * namespace * string * (string list) (* uri, namespace, prefix, symbols *)
-and  filename                  = string
-and  resource                  = string(* URI *) * namespace * (hard_link list)(* dependencies *)
-and  namespace                 = namespace_item list
-and  namespace_item            = 
+type symbolic_link             = string, string, [string]
+type hard_link                 = string, namespace, string, [string]
+type filename                  = string
+type resource                  = string, namespace, [hard_link]
+type namespace                 = [namespace_item]
+type namespace_item            = 
    | NS_import of symbolic_link
    | NS_type of typ
    | NS_bind of (string * term)
    | NS_expr of term
 
-(* All total functions are recursively enumerable *)
-and term = 
-   (* ascription term is not necessary thanks to int identifier on terms
-      hack: types can be encoded into expression language as (con "" tt)
-      hack: patterns can be encoded with a special pattern creation function
-        pi: (a -> b) -> (c -> d) -> (a -> b | c -> d)
-      hack: use Haskell forced currying of tuples in expression language
-   *)
-   | Con of string * typ          (* constant *)
-   | Var of int * string          (* variable reference *)
-   | Abs of int * string * term   (* lambda abstraction *)
-   | App of term * term           (* function application *)
-(* Types are properties that are provable at compile time *)
-and typ = 
-   | TType of string * (typ list) (* T, T<x>, T<x,y>, ... *)
-   | TVar of string               (* 'a *)
-   | TForall of string * typ      (* forall 'a. 'a *)
-   | TArrow of typ * typ          (* A => B *)
-   | TAny of typ list             (* A | B | C *)
+type term = 
+   | Con( string, typ )
+   | Var( int, string )
+   | Abs( int, string, term )
+   | App( term, term )
+type typ = 
+   | TType( string, [typ] )
+   | TVar( string )
+   | TForall( string, typ )
+   | TArrow( typ, typ )
+   | TAny( [typ] )
 
 
-(* Compiler Options *)
-let option_target = ref "sml"
-let option_out = ref "a.out"
+let option_target = ref( "sml" )
+let option_out = ref( "a.out" )
 
-(* For the convenience *)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 let rec term_substitute (k: string) (v: term) = function
    | Con(c,tt) -> Con(c,tt)
    | Var(n,m) -> if m=k then v else Var(n,m)
@@ -155,8 +155,8 @@ let rec unify_type (lt: typ) (rt: typ): typ = (
    let rt = normalize_type rt in
    let fail_unification () = (print_endline("TODO: unify "^(pp_type lt)^" with "^(pp_type rt)); exit 1) in
    match (lt,rt) with
-   | lt,(TVar rv) -> lt
    | (TVar lv),rt -> rt
+   | lt,(TVar rv) -> lt
    | (TAny lts),(TAny rts) -> if List.for_all (fun l -> List.mem l rts) lts
      then normalize_type lt else fail_unification()
    | (TAny lts),rt -> if List.mem rt lts then rt else fail_unification()

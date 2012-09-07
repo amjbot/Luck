@@ -1,50 +1,62 @@
-(* Boolean Operators *)
 function $"and"(a: bool)(b: bool): bool = (@ "(" a " andalso " b ")")
 function $"or"(a: bool)(b: bool): bool = (@ "(" a " orelse " b ")")
+function $"not"(a: bool): bool = (@ "(not " a ")")
 
-(* String Operators *)
+function int(a: int): int = a
+function int(a: string): int = (@ "(Int.fromString " a ")")
+function $"+"(a: int)(b: int): int = (@ "(Int.+ (" a "," b "))")
+function $"-"(a: int)(b: int): int = (@ "(Int.- (" a "," b "))")
+function $"*"(a: int)(b: int): int = (@ "(Int.* (" a "," b "))")
+function $"/"(a: int)(b: int): int = (@ "(Int.div (" a "," b "))")
+function $"%"(a: int)(b: int): int = (@ "(Int.mod (" a "," b "))")
+function $"=="(a: int)(b: int): bool = (@ "(" a "=" b ")")
+function $"!="(a: int)(b: int): bool = not (a == b)
+function $"<"(a: int)(b: int): bool = (@ "(Int.< (" a "," b "))")
+function $"<="(a: int)(b: int): bool = (@ "(Int.<= (" a "," b "))")
+function $">"(a: int)(b: int): bool = (@ "(Int.> (" a "," b "))")
+function $">="(a: int)(b: int): bool = (@ "(Int.>= (" a "," b "))")
+function abs(a: int): int = (@ "(Int.abs " a ")")
+function min(a: int)(b: int): int = (@ "(Int.min(" a "," b "))")
+function max(a: int)(b: int): int = (@ "(Int.max(" a "," b "))")
+
+function real(a: real): real = a
+function real(a: string): real = (@ "(Real.fromString " a ")")
+function $"+"(a: real)(b: real): real = (@ "(Real.+ (" a "," b "))")
+function $"-"(a: real)(b: real): real = (@ "(Real.- (" a "," b "))")
+function $"*"(a: real)(b: real): real = (@ "(Real.* (" a "," b "))")
+function $"/"(a: real)(b: real): real = (@ "(Real./ (" a "," b "))")
+function $"%"(a: real)(b: real): real = (@ "(Real.rem (" a "," b "))")
+function $"=="(a: real)(b: real): bool = (@ "(" a " = " b ")")
+function $"!="(a: real)(b: real): bool = not (a == b)
+function $"<"(a: real)(b: real): bool = (@ "(Real.< (" a "," b "))")
+function $"<="(a: real)(b: real): bool = (@ "(Real.<= (" a "," b "))")
+function $">"(a: real)(b: real): bool = (@ "(Real.> (" a "," b "))")
+function $">="(a: real)(b: real): bool = (@ "(Real.>= (" a "," b "))")
+function abs(a: real): real = (@ "(Real.abs " a ")")
+function min(a: real)(b: real): real = (@ "(Real.min(" a "," b "))")
+function max(a: real)(b: real): real = (@ "(Real.max(" a "," b "))")
+
+
+function string(a: string): string = a
+function string(a: bool): string = (@ "(Bool.toString " a ")")
+function string(a: int): string = (@ "(Int.toString " a ")")
+function string(a: real): string = (@ "(Real.toString " a ")")
+function $".length"(a: string): int = (@ "(String.size " a ")")
 function $"+"(a: string)(b: string): string = (@ "(" a "^" b ")")
-function $"+"(a: string)(b: bool): string = (@ "(" a "^(Bool.toString " b "))")
+function $"+"(a: string)(b: int): string = a + string(b)
+function $"+"(a: string)(b: bool): string = a + string(b)
 
+function $".length"(a: list<'a>): int = (@ "(List.length " a ")")
 
-function print(s:string): unit = (@ "(print " s ")")
-function print(i:int): unit = (@ "(print(Int.toString " i "))")
-
+function assert(a: bool): unit = (@ "(if not(" a ") then (print \"failed assertion\"; OS.Process.exit OS.Process.failure) else ())")
+function print(a: string): unit = (@ "(print " a ")")
+function print(a: int): unit = (@ "(print " string(a) ")")
+function print(a: real): unit = (@ "(print " string(a) ")")
 
 function $"|"(x: 'a)(f: 'a -> 'b): 'b = f(x)
 function $";"(l: 'a)(r: 'b): 'b = r
 
-(* System calls *)
 function exit(code:int): 'a = (@ "(Unix.exit (Word8.fromInt " code "))")
 function exit(_:unit): 'a = (@ "(Unix.exit (Word8.fromInt 0))")
 
-
-(*
-type PatternNotMatched
-(* values *)
-let $"()":() = (@ "()")
-
-function $"throw" (x: 'a): 'b = (@ "(raise " x ")" )
-
-(* language primitives *)
-function $","(): () = (@ "()")
-function $","(a: 'a)(): 'a = (@ "(" a ")")
-function $","(a: 'a)(b: 'b)(): ('a,'b) = (@ "(" a "," b ")")
-function $","(a: 'a)(b: 'b)(c: 'c)(): ('a,'b,'c) = (@ "(" a "," b "," c ")")
-function $","(a: 'a)(b: 'b)(c: 'c)(d: 'd)(): ('a,'b,'c,'d) = (@ "(" a "," b "," c "," d ")")
-function $","(a: 'a)(b: 'b)(c: 'c)(d: 'd)(e: 'e)(): ('a,'b,'c,'d,'e) = (@ "(" a "," b "," c "," d "," e ")")
-function $","(a: 'a)(b: 'b)(c: 'c)(d: 'd)(e: 'e)(f: 'f)(): ('a,'b,'c,'d,'e,'f) = (@ "(" a "," b "," c "," d "," e "," f ")")
-function $","(a: 'a)(b: 'b)(c: 'c)(d: 'd)(e: 'e)(f: 'f)(g: 'g)(): ('a,'b,'c,'d,'e,'f,'g) = (@ "(" a "," b "," c "," d "," e "," f "," g ")")
-
-(* control flow *)
-function $"if"(c: bool)(t: 'a)(f: 'b): 'a|'b = (@ "(if " c " then " t " else " f ")")
-function $"throw"(x: 'a): 'b = (@ "raise " x)
-
-(* operations on values *)
-function $"+"(x: int)(y: int): int = @ "(" x " + " y ")"
-
-(* utility function *)
-function map(f: 'a -> 'b)(l: list['a]): list['b] = @ "(List.map" f " " l ")"
-
-(* system calls *)
-*)
+let argv : list<string> = (@ "(CommandLine.arguments())")

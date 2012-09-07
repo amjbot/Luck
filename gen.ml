@@ -36,7 +36,7 @@ class sml_language : target_language = object (this)
    method private translate_macro (m: term) (xs: term list) = (
       (* Wow, this totally subsumes lisp macros. Hah! *)
       match m with
-      | Abs(p,b) -> (match xs with 
+      | Abs(n,p,b) -> (match xs with 
          | [] -> assert false 
          | x::xs -> this#translate_macro (term_substitute p x b) xs
       ) | App((Var (n,"@")),r) -> assert ((List.length xs)=0); (this#translate_simple_macro m)
@@ -44,23 +44,29 @@ class sml_language : target_language = object (this)
       | _ -> assert false
    )
 
+   method private translate_funterm (k: string) (t: term): string = (
+      match t with
+      | Abs(n,p,b) -> (this#translate_ident k)^" "^(this#translate_ident p)^" = "^(this#translate_term b)
+      | _ -> assert false
+   )
    method private translate_term (t: term): string = (
       match t with
       | Con(v,tt) -> (match tt with 
+         | TType("bool",[]) -> (match v with "true" -> "true" | "false" -> "false")
          | TType("int",[]) -> v
-         | TType("string",[]) -> 
+         | TType("real",[]) -> if not(String.contains v '.') then (v^".0")
+           else if v.[(String.length v)-1]='.' then (v^"0") else v
+         | TType("string",[]) ->
            let v = Str.global_replace (Str.regexp "\n") "\\n" v in
            "\""^v^"\""
          (*
          ("void", fun s -> s );
-         ("bool", fun s -> s );
-         ("float", fun s -> s );
          ("char", fun s -> s );
          *)
          | _ -> print_endline ("Unknown constant type: "^(pp_type tt)); assert false
       )
       | Var(n,k) -> this#translate_ident k
-      | Abs(p,b) -> "(fn "^(this#translate_ident p)^" => "^(this#translate_term b)^")"
+      | Abs(n,p,b) -> "(fn "^(this#translate_ident p)^" => "^(this#translate_term b)^")"
       | App((Var(n,"@")),_) as t-> this#translate_simple_macro t
       | App(f,x) -> (* if is_applied_macro f then this#translate_macro f [x] else *)
         "("^(this#translate_term f)^" "^(this#translate_term x)^")"
@@ -82,9 +88,9 @@ class sml_language : target_language = object (this)
          | NS_expr t -> [t]
          | _ -> []
       ) ns) in
-      let sml_source = (if (List.length term_binds)>0 then "val " else "") ^ (
+      let sml_source = (if (List.length term_binds)>0 then "fun " else "") ^ (
          string_join "\nand " 
-         (List.map (fun (k,t) -> (this#translate_ident k)^" = "^(this#translate_term t)) term_binds)
+         (List.map (fun (k,t) -> (this#translate_funterm k t)) term_binds)
       ) ^ (if (List.length term_binds)>0 then ";\n\n" else "") ^ (
          string_join ";\n" (List.map this#translate_term term_stmts)
       ) ^ (if (List.length term_stmts)>0 then ";" else "") in
